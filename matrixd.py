@@ -33,20 +33,41 @@ class NuqqlClient():
 
         # event handlers
         # TODO: add
+        self.client.add_listener(self.listener)
 
         # data structures
         # TODO: add
         self.lock = lock
+        self.status = "online"
         self.buddies = []
+        self.history = []
+        self.messages = []
+        self.events = []
+        self.queue = []
 
         # misc
         # room = client.create_room("my_room_alias")
         # room.send_text("Hello!")
 
+    def listener(self, event):
+        """
+        Event listener
+        """
+
+        if event["type"] == "m.room.message":
+            self.message(event)
+
     def message(self, msg):
         """
         Message handler
         """
+
+        # save timestamp and message in messages list and history
+        tstamp = int(int(msg["origin_server_ts"])/1000)
+        self.lock.acquire()
+        self.messages.append((tstamp, msg))
+        self.history.append((tstamp, msg))
+        self.lock.release()
 
     def muc_message(self, msg):
         """
@@ -81,15 +102,41 @@ class NuqqlClient():
         Collect all messages from message log
         """
 
+        self.lock.acquire()
+        # create a copy of the history
+        history = self.history[:]
+        self.lock.release()
+
+        # return the copy of the history
+        return history
+
     def get_messages(self):
         """
         Read incoming messages
         """
 
+        self.lock.acquire()
+        # create a copy of the message list, and flush the message list
+        messages = self.messages[:]
+        self.messages = []
+        self.lock.release()
+
+        # return the copy of the message list
+        return messages
+
     def get_events(self):
         """
         Read (muc) events
         """
+
+        self.lock.acquire()
+        # create a copy of the event list, and flush the event list
+        events = self.events[:]
+        self.events = []
+        self.lock.release()
+
+        # return the copy of the event list
+        return events
 
     def enqueue_message(self, message_tuple):
         """
@@ -98,15 +145,68 @@ class NuqqlClient():
             dest, msg, html_msg, msg_type
         """
 
+        self.lock.acquire()
+        # just add message tuple to queue
+        self.queue.append(message_tuple)
+        self.lock.release()
+
     def send_queue(self):
         """
         Send all queued messages
         """
 
+        self.lock.acquire()
+        for message_tuple in self.queue:
+            # create message from message tuple and send it
+            dest, msg, html_msg, mtype = message_tuple
+            self.send_message(dest, msg, html_msg, mtype)
+
+        # flush queue
+        self.queue = []
+        self.lock.release()
+
+    def send_message(self, dest, msg, html_msg, mtype):
+        """
+        Send a single message
+        """
+
+        rooms = self.client.get_rooms()
+        for room in rooms.values():
+            if room.display_name == dest:
+                room.send_html(html_msg, body=msg, msgtype='m.text')
+                return
+
     def update_buddies(self):
         """
         Create a "safe" copy of roster
         """
+
+        self.lock.acquire()
+        # flush buddy list
+        self.buddies = []
+
+        # get buddies/rooms
+        rooms = self.client.get_rooms()
+        for room in rooms.values():
+            name = escape_name(room.display_name)
+
+            # use special status for group chats
+            status = "GROUP_CHAT"
+
+            # add buddies to buddy list
+            buddy = based.Buddy(name=name, alias=name, status=status)
+            self.buddies.append(buddy)
+        self.lock.release()
+
+    def process(self, timeout=None):
+        """
+        Process client for timeout seconds
+        """
+
+        if not timeout:
+            return
+
+        self.client.listen_for_events(timeout_ms=int(timeout * 1000))
 
 
 def update_buddies(account):
@@ -136,15 +236,23 @@ def format_messages(account, messages):
     """
 
     ret = []
+    try:
+        client = CONNECTIONS[account.aid]
+    except KeyError:
+        # no active connection
+        return ret
+
     for tstamp, msg in messages:
         # nuqql expects html-escaped messages; construct them
-        msg_body = msg["body"]
+        # TODO: move message parsing into NuqqlClient?
+        msg_body = msg["content"]["body"]
         msg_body = html.escape(msg_body)
         msg_body = "<br/>".join(msg_body.split("\n"))
-        # ret_str = "message: {} {} {} {} {}".format(account.aid, msg["to"],
-        #                                            tstamp, msg["from"],
-        #                                            msg_body)
-        ret_str = ""    # FIXME
+        sender = msg["sender"]
+        rooms = client.client.get_rooms()
+        dest = rooms[msg["room_id"]].display_name
+        ret_str = "message: {} {} {} {} {}".format(account.aid, dest, tstamp,
+                                                   sender, msg_body)
         ret.append(ret_str)
     return ret
 
@@ -221,7 +329,7 @@ def send_message(account, dest, msg, msg_type="chat"):
     msg = "\n".join(re.split("<br/>", msg, flags=re.IGNORECASE))
 
     # send message
-    client.enqueue_message((dest, msg, html_msg, msg_type))
+    client.enqueue_message((unescape_name(dest), msg, html_msg, msg_type))
 
 
 def set_status(account, status):
@@ -235,6 +343,8 @@ def set_status(account, status):
         # no active connection
         return
 
+    client.status = status
+
 
 def get_status(account):
     """
@@ -247,9 +357,7 @@ def get_status(account):
         # no active connection
         return ""
 
-    status = "offline"
-
-    return status
+    return client.status
 
 
 def chat_list(account):
@@ -264,6 +372,9 @@ def chat_list(account):
         # no active connection
         return ret
 
+    rooms = client.client.get_rooms()
+    for room in rooms.values():
+        ret.append(escape_name(room.display_name))
     return ret
 
 
@@ -278,6 +389,7 @@ def chat_join(account, chat, nick=""):
         # no active connection
         return ""
 
+    client.client.join_room(unescape_name(chat))
     return ""
 
 
@@ -292,6 +404,11 @@ def chat_part(account, chat):
         # no active connection
         return ""
 
+    rooms = client.client.get_rooms()
+    for room in rooms.values():
+        if unescape_name(chat) == room.display_name:
+            room.leave()
+            return ""
     return ""
 
 
@@ -316,13 +433,41 @@ def chat_users(account, chat):
         # no active connection
         return ret
 
-    roster = []     # FIXME
-    for user in roster:
-        if user == "":
-            continue
-        ret.append("chat: user: {} {} {}".format(account.aid, chat, user))
+    roster = []
+    rooms = client.client.get_rooms()
+    for room_id, room in rooms.items():
+        if unescape_name(chat) == room.display_name:
+            roster = client.client.api.get_room_members(room_id)
+
+    # TODO: use roster['chunk'] instead?
+    for chunk in roster.values():
+        for user in chunk:
+            if user['type'] != 'm.room.member':
+                continue
+            if user['content']:
+                name = escape_name(user['content']['displayname'])
+                ret.append("chat: user: {} {} {}".format(account.aid, chat,
+                                                         name))
 
     return ret
+
+
+def escape_name(name):
+    """
+    Escape "invalid" charecters in name: space.
+    """
+
+    # escape spaces
+    return name.replace(" ", "+")
+
+
+def unescape_name(name):
+    """
+    Convert name back to unescaped version.
+    """
+
+    # unescape spaces
+    return name.replace("+", " ")
 
 
 def run_client(account, ready, running):
@@ -332,17 +477,19 @@ def run_client(account, ready, running):
     """
 
     # get event loop for thread
+    # TODO: remove this here?
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
 
     # create a new lock for the thread
     lock = Lock()
 
+    # parse user to get url and username
+    user, url = account.user.split("@", maxsplit=1)
+    url = "http://" + url
+
     # start client connection
-    url = ""        # FIXME
-    user = ""       # FIXME
-    password = ""   # FIXME
-    client = NuqqlClient(url, user, password, lock)
+    client = NuqqlClient(url, user, account.password, lock)
 
     # save client connection in active connections dictionary
     CONNECTIONS[account.aid] = client
@@ -355,10 +502,9 @@ def run_client(account, ready, running):
     while running.is_set():
         # process client for 0.1 seconds, then send pending outgoing
         # messages and update the (safe copy of the) buddy list
-        # client.process(timeout=0.1)
-        # client.send_queue()
-        # client.update_buddies()
-        pass
+        client.process(timeout=0.1)
+        client.send_queue()
+        client.update_buddies()
 
 
 def add_account(account):
