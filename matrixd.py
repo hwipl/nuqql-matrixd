@@ -8,6 +8,7 @@ import sys
 import asyncio
 import html
 import re
+import urllib.parse
 
 from threading import Thread, Lock, Event
 
@@ -462,11 +463,11 @@ def chat_users(account, chat):
 
 def escape_name(name):
     """
-    Escape "invalid" charecters in name: space.
+    Escape "invalid" charecters in name, e.g., space.
     """
 
-    # escape spaces
-    return name.replace(" ", "+")
+    # escape spaces etc.
+    return urllib.parse.quote(name)
 
 
 def unescape_name(name):
@@ -474,8 +475,8 @@ def unescape_name(name):
     Convert name back to unescaped version.
     """
 
-    # unescape spaces
-    return name.replace("+", " ")
+    # unescape spaces etc.
+    return urllib.parse.unquote(name)
 
 
 def run_client(account, ready, running):
