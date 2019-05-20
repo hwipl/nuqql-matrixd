@@ -26,14 +26,10 @@ class NuqqlClient():
     Nuqql Client Class
     """
 
-    def __init__(self, url, username, password, lock):
-
-        self.client = MatrixClient(url)
-        self.token = self.client.login(username=username, password=password)
-
-        # event handlers
-        # TODO: add
-        self.client.add_listener(self.listener)
+    def __init__(self, lock):
+        # server connection
+        self.client = None
+        self.token = None
 
         # data structures
         # TODO: add
@@ -48,6 +44,18 @@ class NuqqlClient():
         # misc
         # room = client.create_room("my_room_alias")
         # room.send_text("Hello!")
+
+    def connect(self, url, username, password):
+        """
+        Connect to server
+        """
+
+        self.client = MatrixClient(url)
+        self.token = self.client.login(username=username, password=password)
+
+        # event handlers
+        # TODO: add
+        self.client.add_listener(self.listener)
 
     def listener(self, event):
         """
@@ -488,14 +496,17 @@ def run_client(account, ready, running):
     user, url = account.user.split("@", maxsplit=1)
     url = "http://" + url
 
-    # start client connection
-    client = NuqqlClient(url, user, account.password, lock)
+    # init client connection
+    client = NuqqlClient(lock)
 
     # save client connection in active connections dictionary
     CONNECTIONS[account.aid] = client
 
     # thread is ready to enter main loop, inform caller
     ready.set()
+
+    # start client connection
+    client.connect(url, user, account.password)
 
     # enter main loop, and keep running until "running" is set to false
     # by the KeyboardInterrupt
