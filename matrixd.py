@@ -13,6 +13,7 @@ import urllib.parse
 from threading import Thread, Lock, Event
 
 from matrix_client.client import MatrixClient
+from matrix_client.errors import MatrixRequestError
 
 
 import based
@@ -51,12 +52,17 @@ class NuqqlClient():
         Connect to server
         """
 
-        self.client = MatrixClient(url)
-        self.token = self.client.login(username=username, password=password)
+        try:
+            self.client = MatrixClient(url)
+            self.token = self.client.login(username=username,
+                                           password=password)
 
-        # event handlers
-        # TODO: add
-        self.client.add_listener(self.listener)
+            # event handlers
+            # TODO: add
+            self.client.add_listener(self.listener)
+        except MatrixRequestError as error:
+            print(error)
+            self.status = "offline"
 
     def listener(self, event):
         """
@@ -164,6 +170,10 @@ class NuqqlClient():
         Send all queued messages
         """
 
+        # if we are offline, send nothing
+        if self.status == "offline":
+            return
+
         self.lock.acquire()
         for message_tuple in self.queue:
             # create message from message tuple and send it
@@ -179,10 +189,14 @@ class NuqqlClient():
         Send a single message
         """
 
-        rooms = self.client.get_rooms()
+        rooms = get_rooms(self)
         for room in rooms.values():
             if room.display_name == dest:
-                room.send_html(html_msg, body=msg, msgtype='m.text')
+                try:
+                    room.send_html(html_msg, body=msg, msgtype='m.text')
+                except MatrixRequestError as error:
+                    # TODO: return error to connected user?
+                    print(error)
                 return
 
     def update_buddies(self):
@@ -190,12 +204,19 @@ class NuqqlClient():
         Create a "safe" copy of roster
         """
 
+        # if we are offline, there are no buddies
+        if self.status == "offline":
+            self.lock.acquire()
+            self.buddies = []
+            self.lock.release()
+            return
+
         self.lock.acquire()
         # flush buddy list
         self.buddies = []
 
         # get buddies/rooms
-        rooms = self.client.get_rooms()
+        rooms = get_rooms(self)
         for room in rooms.values():
             name = escape_name(room.display_name)
 
@@ -212,7 +233,7 @@ class NuqqlClient():
         Process client for timeout seconds
         """
 
-        if not timeout:
+        if not timeout or self.status == "offline":
             return
 
         self.client.listen_for_events(timeout_ms=int(timeout * 1000))
@@ -258,7 +279,7 @@ def format_messages(account, messages):
         msg_body = html.escape(msg_body)
         msg_body = "<br/>".join(msg_body.split("\n"))
         sender = msg["sender"]
-        rooms = client.client.get_rooms()
+        rooms = get_rooms(client)
         dest = rooms[msg["room_id"]].display_name
         ret_str = "message: {} {} {} {} {}".format(account.aid, dest, tstamp,
                                                    sender, msg_body)
@@ -352,6 +373,7 @@ def set_status(account, status):
         # no active connection
         return
 
+    # TODO: do something when status changes, e.g., from offline to online?
     client.status = status
 
 
@@ -381,7 +403,7 @@ def chat_list(account):
         # no active connection
         return ret
 
-    rooms = client.client.get_rooms()
+    rooms = get_rooms(client)
     for room in rooms.values():
         ret.append(escape_name(room.display_name))
     return ret
@@ -398,7 +420,10 @@ def chat_join(account, chat, nick=""):
         # no active connection
         return ""
 
-    client.client.join_room(unescape_name(chat))
+    try:
+        client.client.join_room(unescape_name(chat))
+    except MatrixRequestError as error:
+        return "error: code: {} content: {}".format(error.code, error.content)
     return ""
 
 
@@ -413,10 +438,14 @@ def chat_part(account, chat):
         # no active connection
         return ""
 
-    rooms = client.client.get_rooms()
+    rooms = get_rooms(client)
     for room in rooms.values():
         if unescape_name(chat) == room.display_name:
-            room.leave()
+            try:
+                room.leave()
+            except MatrixRequestError as error:
+                return "error: code: {} content: {}".format(error.code,
+                                                            error.content)
             return ""
     return ""
 
@@ -443,10 +472,14 @@ def chat_users(account, chat):
         return ret
 
     roster = []
-    rooms = client.client.get_rooms()
+    rooms = get_rooms(client)
     for room_id, room in rooms.items():
         if unescape_name(chat) == room.display_name:
-            roster = client.client.api.get_room_members(room_id)
+            try:
+                roster = client.client.api.get_room_members(room_id)
+            except MatrixRequestError as error:
+                print(error)
+                roster = {}
 
     # TODO: use roster['chunk'] instead?
     for chunk in roster.values():
@@ -459,6 +492,19 @@ def chat_users(account, chat):
                                                          name))
 
     return ret
+
+
+def get_rooms(client):
+    """
+    Get list of rooms
+    """
+
+    try:
+        rooms = client.client.get_rooms()
+    except MatrixRequestError as error:
+        print(error)
+        rooms = []
+    return rooms
 
 
 def escape_name(name):
