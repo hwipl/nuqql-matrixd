@@ -386,7 +386,8 @@ def format_messages(account, messages):
         sender = msg["sender"]
         rooms = get_rooms(client)
         dest = rooms[msg["room_id"]].display_name
-        ret_str = "message: {} {} {} {} {}".format(account.aid, dest, tstamp,
+        ret_str = "message: {} {} {} {} {}".format(account.aid,
+                                                   escape_name(dest), tstamp,
                                                    sender, msg_body)
         ret.append(ret_str)
     return ret
@@ -400,7 +401,8 @@ def format_events(account, events):
     ret = []
     for tstamp, chat, sender, msg in events:
         # TODO: change parsing in nuqql and use char + / + sender here?
-        ret_str = "message: {} {} {} {} {}".format(account.aid, chat, tstamp,
+        ret_str = "message: {} {} {} {} {}".format(account.aid,
+                                                   escape_name(chat), tstamp,
                                                    sender, msg)
         ret.append(ret_str)
     return ret
