@@ -9,6 +9,7 @@ import asyncio
 import html
 import re
 import urllib.parse
+import time
 
 from threading import Thread, Lock, Event
 
@@ -123,12 +124,44 @@ class NuqqlClient():
 
         print("presence: {}".format(event))
 
-    def invite_listener(self, room_id, event):
+    def invite_listener(self, room_id, events):
         """
         Invite event listener
         """
 
-        print("invite: {} {}".format(room_id, event))
+        # get sender, room_name, and timestamp of invite
+        sender = "unknown"
+        sender_name = "unknown"
+        room_name = room_id
+        tstamp = int(time.time())
+        for event in events["events"]:
+            # get sender of invite
+            if event["type"] == "m.room.join_rules" and \
+               event["content"]["join_rule"] == "invite":
+                sender = event["sender"]
+                sender_name = self.client.get_user(sender).get_display_name()
+
+            # try to get timestamp
+            if "origin_server_ts" in event:
+                tstamp = int(int(event["origin_server_ts"])/1000)
+
+            # try to get room name
+            if event["type"] == "m.room.name":
+                # it is a normal room
+                room_name = event["content"]["name"]
+        # if we did not find a room.name entry, assume it's a direct chat...
+        if room_name == room_id:
+            # ... and use sender name as direct chat name
+            room_name = sender_name
+
+        # construct event message
+        msg = "*** {} invited you to {} ({}). ***".format(sender_name, room_id,
+                                                          room_name)
+
+        # add event to event list
+        self.lock.acquire()
+        self.events.append((tstamp, room_name, sender, msg))
+        self.lock.release()
 
     def leave_listener(self, room_id, event):
         """
