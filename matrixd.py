@@ -34,7 +34,6 @@ class NuqqlClient():
         self.token = None
 
         # data structures
-        # TODO: add
         self.lock = lock
         self.status = "online"
         self.buddies = []
@@ -58,8 +57,12 @@ class NuqqlClient():
                                            password=password)
 
             # event handlers
-            # TODO: add
             self.client.add_listener(self.listener)
+            self.client.add_presence_listener(self.presence_listener)
+            self.client.add_invite_listener(self.invite_listener)
+            self.client.add_leave_listener(self.leave_listener)
+            self.client.add_ephemeral_listener(self.ephemeral_listener)
+
         except MatrixRequestError as error:
             print(error)
             self.status = "offline"
@@ -69,8 +72,37 @@ class NuqqlClient():
         Event listener
         """
 
+        print("listener: {}".format(event))
         if event["type"] == "m.room.message":
             self.message(event)
+
+    def presence_listener(self, event):
+        """
+        Presence event listener
+        """
+
+        print("presence: {}".format(event))
+
+    def invite_listener(self, room_id, event):
+        """
+        Invite event listener
+        """
+
+        print("invite: {} {}".format(room_id, event))
+
+    def leave_listener(self, room_id, event):
+        """
+        Leave event listener
+        """
+
+        print("leave: {} {}".format(room_id, event))
+
+    def ephemeral_listener(self, event):
+        """
+        Ephemeral event listener
+        """
+
+        print("ephemeral: {}".format(event))
 
     def message(self, msg):
         """
