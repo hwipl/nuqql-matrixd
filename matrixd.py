@@ -67,6 +67,44 @@ class NuqqlClient():
             print(error)
             self.status = "offline"
 
+    def _membership_event(self, event):
+        """
+        Handle membership event
+        """
+
+        # parse event
+        sender = event["sender"]
+        sender_name = self.client.get_user(sender).get_display_name()
+        room_id = event["room_id"]
+        room_name = room_id
+        membership = event["content"]["membership"]
+        tstamp = int(int(event["origin_server_ts"])/1000)
+
+        # get room name
+        rooms = get_rooms(self)
+        for room in rooms.values():
+            if room.room_id == room_id:
+                room_name = room.display_name
+                break
+
+        # check membership type
+        if membership == "invite":
+            invited_user = event["content"]["displayname"]
+            msg = "*** {} invited {} to {}. ***".format(sender_name,
+                                                        invited_user,
+                                                        room_name)
+        if membership == "join":
+            invited_user = event["content"]["displayname"]
+            msg = "*** {} joined {}. ***".format(invited_user, room_name)
+
+        if membership == "leave":
+            msg = "*** {} left {}. ***".format(sender_name, room_name)
+
+        # add event to event list
+        self.lock.acquire()
+        self.events.append((tstamp, room_name, sender, msg))
+        self.lock.release()
+
     def listener(self, event):
         """
         Event listener
@@ -75,6 +113,8 @@ class NuqqlClient():
         print("listener: {}".format(event))
         if event["type"] == "m.room.message":
             self.message(event)
+        if event["type"] == "m.room.member":
+            self._membership_event(event)
 
     def presence_listener(self, event):
         """
@@ -325,9 +365,10 @@ def format_events(account, events):
     """
 
     ret = []
-    for tstamp, chat, nick, msg in events:
+    for tstamp, chat, sender, msg in events:
+        # TODO: change parsing in nuqql and use char + / + sender here?
         ret_str = "message: {} {} {} {} {}".format(account.aid, chat, tstamp,
-                                                   chat + "/" + nick, msg)
+                                                   sender, msg)
         ret.append(ret_str)
     return ret
 
