@@ -605,6 +605,28 @@ def chat_users(account, chat):
     return ret
 
 
+def chat_invite(account, chat, user_id):
+    """
+    Invite user to chat
+    """
+
+    try:
+        client = CONNECTIONS[account.aid]
+    except KeyError:
+        # no active connection
+        return ""
+
+    rooms = get_rooms(client)
+    for room in rooms.values():
+        if unescape_name(chat) == room.display_name:
+            try:
+                room.invite_user(user_id)
+            except MatrixRequestError as error:
+                return "error: code: {} content: {}".format(error.code,
+                                                            error.content)
+    return ""
+
+
 def get_rooms(client):
     """
     Get list of rooms
@@ -731,6 +753,7 @@ def main():
     based.CALLBACKS["chat_part"] = chat_part
     based.CALLBACKS["chat_send"] = chat_send
     based.CALLBACKS["chat_users"] = chat_users
+    based.CALLBACKS["chat_invite"] = chat_invite
 
     # run the server for the nuqql connection
     try:
