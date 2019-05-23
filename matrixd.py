@@ -33,6 +33,7 @@ class NuqqlClient():
         # server connection
         self.client = None
         self.token = None
+        self.user = ""
 
         # data structures
         self.lock = lock
@@ -53,6 +54,7 @@ class NuqqlClient():
         """
 
         try:
+            self.user = username
             self.client = MatrixClient(url)
             self.token = self.client.login(username=username,
                                            password=password)
@@ -513,7 +515,8 @@ def chat_list(account):
 
     rooms = get_rooms(client)
     for room in rooms.values():
-        ret.append(escape_name(room.display_name))
+        ret.append("chat: list: {} {} {}".format(
+            account.aid, escape_name(room.display_name), client.user))
     return ret
 
 
