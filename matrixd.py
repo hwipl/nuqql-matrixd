@@ -80,7 +80,11 @@ class NuqqlClient():
 
         # parse event
         sender = event["sender"]
-        sender_name = self.client.get_user(sender).get_display_name()
+        try:
+            sender_name = self.client.get_user(sender).get_display_name()
+        except MatrixRequestError as error:
+            sender_name = sender
+            print(error)
         room_id = event["room_id"]
         room_name = room_id
         membership = event["content"]["membership"]
@@ -141,7 +145,12 @@ class NuqqlClient():
             if event["type"] == "m.room.join_rules" and \
                event["content"]["join_rule"] == "invite":
                 sender = event["sender"]
-                sender_name = self.client.get_user(sender).get_display_name()
+                try:
+                    sender_name = \
+                            self.client.get_user(sender).get_display_name()
+                except MatrixRequestError as error:
+                    sender_name = sender
+                    print(error)
 
             # try to get timestamp
             if "origin_server_ts" in event:
