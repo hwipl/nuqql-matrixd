@@ -331,7 +331,7 @@ class NuqqlClient():
             status = "GROUP_CHAT"
 
             # add buddies to buddy list
-            buddy = based.Buddy(name=name, alias=name, status=status)
+            buddy = based.Buddy(name=room.room_id, alias=name, status=status)
             self.buddies.append(buddy)
         self.lock.release()
 
@@ -373,12 +373,6 @@ def format_messages(account, messages):
     """
 
     ret = []
-    try:
-        client = CONNECTIONS[account.aid]
-    except KeyError:
-        # no active connection
-        return ret
-
     for tstamp, msg in messages:
         # nuqql expects html-escaped messages; construct them
         # TODO: move message parsing into NuqqlClient?
@@ -386,10 +380,8 @@ def format_messages(account, messages):
         msg_body = html.escape(msg_body)
         msg_body = "<br/>".join(msg_body.split("\n"))
         sender = msg["sender"]
-        rooms = get_rooms(client)
-        dest = rooms[msg["room_id"]].display_name
-        ret_str = "message: {} {} {} {} {}".format(account.aid,
-                                                   escape_name(dest), tstamp,
+        dest = msg["room_id"]
+        ret_str = "message: {} {} {} {} {}".format(account.aid, dest, tstamp,
                                                    sender, msg_body)
         ret.append(ret_str)
     return ret
@@ -515,8 +507,9 @@ def chat_list(account):
 
     rooms = get_rooms(client)
     for room in rooms.values():
-        ret.append("chat: list: {} {} {}".format(
-            account.aid, escape_name(room.display_name), client.user))
+        ret.append("chat: list: {} {} {} {}".format(
+            account.aid, room.room_id, escape_name(room.display_name),
+            client.user))
     return ret
 
 
@@ -603,8 +596,9 @@ def chat_users(account, chat):
                user['content']['membership'] == 'join' and \
                'displayname' in user['content']:
                 name = escape_name(user['content']['displayname'])
-                ret.append("chat: user: {} {} {}".format(account.aid, chat,
-                                                         name))
+                user_id = user['user_id']
+                ret.append("chat: user: {} {} {} {}".format(account.aid, chat,
+                                                            user_id, name))
 
     return ret
 
