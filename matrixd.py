@@ -298,7 +298,7 @@ class NuqqlClient():
 
         rooms = get_rooms(self)
         for room in rooms.values():
-            if room.display_name == dest:
+            if dest in (room.display_name, room.room_id):
                 try:
                     room.send_html(html_msg, body=msg, msgtype='m.text')
                 except MatrixRequestError as error:
