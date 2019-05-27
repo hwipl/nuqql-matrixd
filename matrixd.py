@@ -54,17 +54,20 @@ class NuqqlClient():
         """
 
         try:
+            # initialize matrix client connection
             self.user = username
             self.client = MatrixClient(url)
-            self.token = self.client.login(username=username,
-                                           password=password)
 
-            # event handlers
+            # add event handlers
             self.client.add_listener(self.listener)
             self.client.add_presence_listener(self.presence_listener)
             self.client.add_invite_listener(self.invite_listener)
             self.client.add_leave_listener(self.leave_listener)
             self.client.add_ephemeral_listener(self.ephemeral_listener)
+
+            # login
+            self.token = self.client.login(username=username,
+                                           password=password)
 
         except MatrixRequestError as error:
             print(error)
