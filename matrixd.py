@@ -551,7 +551,8 @@ def chat_part(account, chat):
 
     rooms = get_rooms(client)
     for room in rooms.values():
-        if unescape_name(chat) == room.display_name:
+        if unescape_name(chat) == room.display_name or \
+           unescape_name(chat) == room.room_id:
             try:
                 room.leave()
             except MatrixRequestError as error:
@@ -585,7 +586,8 @@ def chat_users(account, chat):
     roster = {}
     rooms = get_rooms(client)
     for room_id, room in rooms.items():
-        if unescape_name(chat) == room.display_name:
+        if unescape_name(chat) == room.display_name or \
+           unescape_name(chat) == room_id:
             try:
                 roster = client.client.api.get_room_members(room_id)
             except MatrixRequestError as error:
@@ -620,7 +622,8 @@ def chat_invite(account, chat, user_id):
 
     rooms = get_rooms(client)
     for room in rooms.values():
-        if unescape_name(chat) == room.display_name:
+        if unescape_name(chat) == room.display_name or \
+           unescape_name(chat) == room.room_id:
             try:
                 room.invite_user(user_id)
             except MatrixRequestError as error:
