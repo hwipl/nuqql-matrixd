@@ -67,7 +67,7 @@ class NuqqlClient():
 
             # login
             self.token = self.client.login(username=username,
-                                           password=password)
+                                           password=password, sync=False)
 
         except MatrixRequestError as error:
             print(error)
