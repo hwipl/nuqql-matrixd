@@ -88,10 +88,7 @@ class NuqqlClient():
 
         # get room name
         rooms = get_rooms(self)
-        for room in rooms.values():
-            if room.room_id == room_id:
-                room_name = room.display_name
-                break
+        room_name = rooms[room_id].display_name
 
         # check membership type
         if membership == "invite":
