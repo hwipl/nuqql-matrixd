@@ -582,7 +582,7 @@ def chat_users(account, chat):
         # no active connection
         return ret
 
-    roster = []
+    roster = {}
     rooms = get_rooms(client)
     for room_id, room in rooms.items():
         if unescape_name(chat) == room.display_name:
@@ -597,7 +597,9 @@ def chat_users(account, chat):
         for user in chunk:
             if user['type'] != 'm.room.member':
                 continue
-            if user['content']:
+            if user['content'] and \
+               user['content']['membership'] == 'join' and \
+               'displayname' in user['content']:
                 name = escape_name(user['content']['displayname'])
                 ret.append("chat: user: {} {} {}".format(account.aid, chat,
                                                          name))
