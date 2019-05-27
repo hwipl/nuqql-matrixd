@@ -105,7 +105,7 @@ class NuqqlClient():
 
         # add event to event list
         self.lock.acquire()
-        self.events.append((tstamp, room_name, sender, msg))
+        self.events.append((tstamp, room_id, sender, msg))
         self.lock.release()
 
     def listener(self, event):
@@ -162,7 +162,7 @@ class NuqqlClient():
 
         # add event to event list
         self.lock.acquire()
-        self.events.append((tstamp, room_name, sender, msg))
+        self.events.append((tstamp, room_id, sender, msg))
         self.lock.release()
 
     def leave_listener(self, room_id, event):
@@ -395,8 +395,7 @@ def format_events(account, events):
     ret = []
     for tstamp, chat, sender, msg in events:
         # TODO: change parsing in nuqql and use char + / + sender here?
-        ret_str = "message: {} {} {} {} {}".format(account.aid,
-                                                   escape_name(chat), tstamp,
+        ret_str = "message: {} {} {} {} {}".format(account.aid, chat, tstamp,
                                                    sender, msg)
         ret.append(ret_str)
     return ret
