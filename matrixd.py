@@ -44,6 +44,9 @@ class NuqqlClient():
         self.events = []
         self.queue = []
 
+        # separate data structure for managing room invites
+        self.room_invites = {}
+
         # misc
         # room = client.create_room("my_room_alias")
         # room.send_text("Hello!")
@@ -165,13 +168,12 @@ class NuqqlClient():
             # ... and use sender name as direct chat name
             room_name = sender_name
 
-        # construct event message
-        msg = "*** {} invited you to {} ({}). ***".format(sender_name, room_id,
-                                                          room_name)
+        # construct invite data structure
+        invite = room_id, room_name, sender, sender_name, tstamp
 
         # add event to event list
         self.lock.acquire()
-        self.events.append((tstamp, "event", room_id, sender, msg))
+        self.room_invites[room_id] = invite
         self.lock.release()
 
     def leave_listener(self, room_id, event):
@@ -341,6 +343,18 @@ class NuqqlClient():
 
             # add buddies to buddy list
             buddy = based.Buddy(name=room.room_id, alias=name, status=status)
+            self.buddies.append(buddy)
+
+            # cleanup old invites
+            if room.room_id in self.room_invites:
+                # seems like we are in the room now, remove invite
+                del self.room_invites[room.room_id]
+
+        # handle pending room invites as temporary buddies
+        for invite in self.room_invites.values():
+            room_id, room_name, _sender, _sender_name, _tstamp = invite
+            status = "GROUP_CHAT_INVITE"
+            buddy = based.Buddy(name=room_id, alias=room_name, status=status)
             self.buddies.append(buddy)
         self.lock.release()
 
@@ -552,6 +566,7 @@ def chat_part(account, chat):
         # no active connection
         return ""
 
+    # part an already joined room
     rooms = get_rooms(client)
     for room in rooms.values():
         if unescape_name(chat) == room.display_name or \
@@ -562,6 +577,19 @@ def chat_part(account, chat):
                 return "error: code: {} content: {}".format(error.code,
                                                             error.content)
             return ""
+    # part a room we are invited to
+    for invite in client.room_invites.values():
+        room_id, _room_name, _sender, _sender_name, _tstamp = invite
+        try:
+            client.client.api.leave_room(room_id)
+        except MatrixRequestError as error:
+            return "error: code: {} content: {}".format(error.code,
+                                                        error.content)
+        # remove room from invites
+        client.room_invites = {k: v for k, v in client.room_invites.items() if
+                               k != room_id}
+        return ""
+
     return ""
 
 
