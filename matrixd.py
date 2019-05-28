@@ -166,11 +166,12 @@ class NuqqlClient():
             room_name = sender_name
 
         # construct event message
-        msg = "{} {} {} {}".format(sender, sender_name, room_id, room_name)
+        msg = "*** {} invited you to {} ({}). ***".format(sender_name, room_id,
+                                                          room_name)
 
         # add event to event list
         self.lock.acquire()
-        self.events.append((tstamp, "invite", room_id, sender, msg))
+        self.events.append((tstamp, "event", room_id, sender, msg))
         self.lock.release()
 
     def leave_listener(self, room_id, event):
@@ -402,9 +403,6 @@ def format_events(account, events):
 
     ret = []
     for tstamp, etype, chat, sender, msg in events:
-        if etype == "invite":
-            # group chat invite
-            ret_str = "chat: invite: {} {}".format(account.aid, msg)
         if etype == "event":
             # generic event, return as message
             # TODO: change parsing in nuqql and use char + / + sender here?
@@ -604,7 +602,6 @@ def chat_users(account, chat):
         for user in chunk:
             if user['type'] != 'm.room.member':
                 continue
-            # TODO: display invited users (membership == invite)?
             if user['content'] and \
                user['content']['membership'] == 'join' and \
                'displayname' in user['content']:
