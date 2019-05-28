@@ -634,6 +634,7 @@ def chat_users(account, chat):
                user['content']['membership'] in ('join', 'invite') and \
                'displayname' in user['content']:
                 name = escape_name(user['content']['displayname'])
+                status = user['content']['membership']
                 if user['content']['membership'] == 'join':
                     # this member is already in the room
                     user_id = user['user_id']
@@ -642,8 +643,8 @@ def chat_users(account, chat):
                     # user['user_id'] is the sender of the invite,
                     # use fake user id.
                     user_id = "@{}:<invited>".format(name)
-                ret.append("chat: user: {} {} {} {}".format(account.aid, chat,
-                                                            user_id, name))
+                ret.append("chat: user: {} {} {} {} {}".format(
+                    account.aid, chat, user_id, name, status))
 
     return ret
 
