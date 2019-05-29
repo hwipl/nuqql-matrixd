@@ -579,16 +579,18 @@ def chat_part(account, chat):
             return ""
     # part a room we are invited to
     for invite in client.room_invites.values():
-        room_id, _room_name, _sender, _sender_name, _tstamp = invite
-        try:
-            client.client.api.leave_room(room_id)
-        except MatrixRequestError as error:
-            return "error: code: {} content: {}".format(error.code,
-                                                        error.content)
-        # remove room from invites
-        client.room_invites = {k: v for k, v in client.room_invites.items() if
-                               k != room_id}
-        return ""
+        room_id, room_name, _sender, _sender_name, _tstamp = invite
+        if unescape_name(chat) == room_name or \
+           unescape_name(chat) == room_id:
+            try:
+                client.client.api.leave_room(room_id)
+            except MatrixRequestError as error:
+                return "error: code: {} content: {}".format(error.code,
+                                                            error.content)
+            # remove room from invites
+            client.room_invites = {k: v for k, v in client.room_invites.items()
+                                   if k != room_id}
+            return ""
 
     return ""
 
