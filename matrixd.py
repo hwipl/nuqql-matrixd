@@ -295,6 +295,8 @@ class NuqqlClient():
                 self._chat_list()
             if cmd == "chat_join":
                 self._chat_join(params[0], params[1])
+            if cmd == "chat_part":
+                self._chat_part(params[0])
 
     def _send_message(self, message_tuple):
         """
@@ -345,6 +347,46 @@ class NuqqlClient():
                 "error: code: {} content: {}".format(error.code,
                                                      error.content))
             self.lock.release()
+
+    def _chat_part(self, chat):
+        """
+        Leave chat on account
+        """
+
+        # part an already joined room
+        rooms = get_rooms(self)
+        for room in rooms.values():
+            if unescape_name(chat) == room.display_name or \
+               unescape_name(chat) == room.room_id:
+                try:
+                    room.leave()
+                except MatrixRequestError as error:
+                    self.lock.acquire()
+                    self.messages.append("error: code: {} content: {}".format(
+                        error.code, error.content))
+                    self.lock.release()
+                    return
+                return
+        # part a room we are invited to
+        # TODO: add locking
+        for invite in self.room_invites.values():
+            room_id, room_name, _sender, _sender_name, _tstamp = invite
+            if unescape_name(chat) == room_name or \
+               unescape_name(chat) == room_id:
+                try:
+                    self.client.api.leave_room(room_id)
+                except MatrixRequestError as error:
+                    self.lock.acquire()
+                    self.messages.append("error: code: {} content: {}".format(
+                        error.code, error.content))
+                    self.lock.release()
+                    return
+                # remove room from invites
+                self.room_invites = {k: v for k, v in self.room_invites.items()
+                                     if k != room_id}
+                return
+
+        return
 
     def update_buddies(self):
         """
@@ -560,33 +602,7 @@ def chat_part(account, chat):
         # no active connection
         return ""
 
-    # part an already joined room
-    rooms = get_rooms(client)
-    for room in rooms.values():
-        if unescape_name(chat) == room.display_name or \
-           unescape_name(chat) == room.room_id:
-            try:
-                room.leave()
-            except MatrixRequestError as error:
-                return "error: code: {} content: {}".format(error.code,
-                                                            error.content)
-            return ""
-    # part a room we are invited to
-    # TODO: add locking
-    for invite in client.room_invites.values():
-        room_id, room_name, _sender, _sender_name, _tstamp = invite
-        if unescape_name(chat) == room_name or \
-           unescape_name(chat) == room_id:
-            try:
-                client.client.api.leave_room(room_id)
-            except MatrixRequestError as error:
-                return "error: code: {} content: {}".format(error.code,
-                                                            error.content)
-            # remove room from invites
-            client.room_invites = {k: v for k, v in client.room_invites.items()
-                                   if k != room_id}
-            return ""
-
+    client.enqueue_command("chat_part", (chat, ))
     return ""
 
 
