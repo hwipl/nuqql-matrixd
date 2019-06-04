@@ -480,11 +480,8 @@ class NuqqlClient():
             self.lock.release()
             return
 
-        self.lock.acquire()
-        # flush buddy list
-        self.buddies = []
-
         # get buddies/rooms
+        buddies = []
         rooms = self._get_rooms()
         for room in rooms.values():
             name = escape_name(room.display_name)
@@ -494,7 +491,7 @@ class NuqqlClient():
 
             # add buddies to buddy list
             buddy = based.Buddy(name=room.room_id, alias=name, status=status)
-            self.buddies.append(buddy)
+            buddies.append(buddy)
 
             # cleanup old invites
             if room.room_id in self.room_invites:
@@ -506,7 +503,11 @@ class NuqqlClient():
             room_id, room_name, _sender, _sender_name, _tstamp = invite
             status = "GROUP_CHAT_INVITE"
             buddy = based.Buddy(name=room_id, alias=room_name, status=status)
-            self.buddies.append(buddy)
+            buddies.append(buddy)
+
+        self.lock.acquire()
+        # flush buddy list
+        self.buddies = buddies
         self.lock.release()
 
     def process(self, timeout=None):
