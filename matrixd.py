@@ -44,7 +44,6 @@ class NuqqlClient():
         self.buddies = []
         self.history = []
         self.messages = []
-        self.events = []
         self.queue = []
 
         # separate data structure for managing room invites
@@ -113,9 +112,14 @@ class NuqqlClient():
         if membership == "leave":
             msg = "*** {} left {}. ***".format(sender_name, room_name)
 
+        # generic event, return as message
+        # TODO: change parsing in nuqql and use char + / + sender here?
+        formatted_msg = "message: {} {} {} {} {}".format(
+            self.account.aid, room_id, tstamp, sender, msg)
+
         # add event to event list
         self.lock.acquire()
-        self.events.append((tstamp, "event", room_id, sender, msg))
+        self.messages.append(formatted_msg)
         self.lock.release()
 
     def listener(self, event):
@@ -261,20 +265,6 @@ class NuqqlClient():
         # return the copy of the message list
         return messages
 
-    def get_events(self):
-        """
-        Read (muc) events
-        """
-
-        self.lock.acquire()
-        # create a copy of the event list, and flush the event list
-        events = self.events[:]
-        self.events = []
-        self.lock.release()
-
-        # return the copy of the event list
-        return events
-
     def enqueue_message(self, message_tuple):
         """
         Enqueue a message tuple in the message queue
@@ -411,22 +401,6 @@ def format_message(account, tstamp, msg):
     return ret_str
 
 
-def format_events(account, events):
-    """
-    Format events for get_messages()
-    """
-
-    ret = []
-    for tstamp, etype, chat, sender, msg in events:
-        if etype == "event":
-            # generic event, return as message
-            # TODO: change parsing in nuqql and use char + / + sender here?
-            ret_str = "message: {} {} {} {} {}".format(account.aid, chat,
-                                                       tstamp, sender, msg)
-        ret.append(ret_str)
-    return ret
-
-
 def get_messages(account):
     """
     Read messages from client connection
@@ -438,15 +412,8 @@ def get_messages(account):
         # no active connection
         return []
 
-    # get messages
-    messages = client.get_messages()
-
-    # get events
-    # TODO: add function call for events in based.py and new message format?
-    events = format_events(account, client.get_events())
-
-    # return messages and event
-    return messages + events
+    # get and return messages
+    return client.get_messages()
 
 
 def collect_messages(account):
