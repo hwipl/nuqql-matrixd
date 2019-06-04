@@ -265,41 +265,45 @@ class NuqqlClient():
         # return the copy of the message list
         return messages
 
-    def enqueue_message(self, message_tuple):
+    def enqueue_command(self, cmd, params):
         """
-        Enqueue a message tuple in the message queue
+        Enqueue a command in the command queue
         Tuple consists of:
-            dest, msg, html_msg, msg_type
+            command and its parameters
         """
 
         self.lock.acquire()
         # just add message tuple to queue
-        self.queue.append(message_tuple)
+        self.queue.append((cmd, params))
         self.lock.release()
 
-    def send_queue(self):
+    def handle_queue(self):
         """
-        Send all queued messages
+        Handle all queued commands
         """
 
-        # if we are offline, send nothing
-        if self.status == "offline":
-            return
-
+        # create temporary copy and flush queue
         self.lock.acquire()
-        for message_tuple in self.queue:
-            # create message from message tuple and send it
-            dest, msg, html_msg, mtype = message_tuple
-            self.send_message(dest, msg, html_msg, mtype)
-
-        # flush queue
+        queue = self.queue[:]
         self.queue = []
         self.lock.release()
 
-    def send_message(self, dest, msg, html_msg, mtype):
+        for cmd, params in queue:
+            if cmd == "message":
+                self._send_message(params)
+
+    def _send_message(self, message_tuple):
         """
         Send a single message
         """
+
+        # if we are offline, send nothing
+        # TODO: remove this?
+        if self.status == "offline":
+            return
+
+        # create message from message tuple and send it
+        dest, msg, html_msg, mtype = message_tuple
 
         rooms = get_rooms(self)
         for room in rooms.values():
@@ -450,7 +454,8 @@ def send_message(account, dest, msg, msg_type="chat"):
     msg = "\n".join(re.split("<br/>", msg, flags=re.IGNORECASE))
 
     # send message
-    client.enqueue_message((unescape_name(dest), msg, html_msg, msg_type))
+    client.enqueue_command("message", (unescape_name(dest), msg, html_msg,
+                                       msg_type))
 
 
 def set_status(account, status):
@@ -707,7 +712,7 @@ def run_client(account, ready, running):
         # process client for 0.1 seconds, then send pending outgoing
         # messages and update the (safe copy of the) buddy list
         client.process(timeout=0.1)
-        client.send_queue()
+        client.handle_queue()
         client.update_buddies()
 
 
