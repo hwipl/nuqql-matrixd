@@ -345,9 +345,8 @@ class NuqqlClient():
             self.client.join_room(unescape_name(chat))
         except MatrixRequestError as error:
             self.lock.acquire()
-            self.messages.append(
-                "error: code: {} content: {}".format(error.code,
-                                                     error.content))
+            self.messages.append("error: code: {} content: {}".format(
+                error.code, error.content))
             self.lock.release()
 
     def _chat_part(self, chat):
