@@ -297,6 +297,8 @@ class NuqqlClient():
                 self._chat_join(params[0], params[1])
             if cmd == "chat_part":
                 self._chat_part(params[0])
+            if cmd == "chat_users":
+                self._chat_users(params[0])
 
     def _send_message(self, message_tuple):
         """
@@ -387,6 +389,45 @@ class NuqqlClient():
                 return
 
         return
+
+    def _chat_users(self, chat):
+        """
+        Get list of users in chat on account
+        """
+
+        roster = {}
+        rooms = get_rooms(self)
+        for room_id, room in rooms.items():
+            if unescape_name(chat) == room.display_name or \
+               unescape_name(chat) == room_id:
+                try:
+                    roster = self.client.api.get_room_members(room_id)
+                except MatrixRequestError as error:
+                    print(error)
+                    roster = {}
+
+        # TODO: use roster['chunk'] instead?
+        for chunk in roster.values():
+            for user in chunk:
+                if user['type'] != 'm.room.member':
+                    continue
+                if user['content'] and \
+                   user['content']['membership'] in ('join', 'invite') and \
+                   'displayname' in user['content']:
+                    name = escape_name(user['content']['displayname'])
+                    status = user['content']['membership']
+                    if user['content']['membership'] == 'join':
+                        # this member is already in the room
+                        user_id = user['user_id']
+                    else:
+                        # this member is only invited to the room.
+                        # user['user_id'] is the sender of the invite,
+                        # use fake user id.
+                        user_id = "@{}:<invited>".format(name)
+                    self.lock.acquire()
+                    self.messages.append("chat: user: {} {} {} {} {}".format(
+                        self.account.aid, chat, user_id, name, status))
+                    self.lock.release()
 
     def update_buddies(self):
         """
@@ -627,38 +668,7 @@ def chat_users(account, chat):
         # no active connection
         return ret
 
-    roster = {}
-    rooms = get_rooms(client)
-    for room_id, room in rooms.items():
-        if unescape_name(chat) == room.display_name or \
-           unescape_name(chat) == room_id:
-            try:
-                roster = client.client.api.get_room_members(room_id)
-            except MatrixRequestError as error:
-                print(error)
-                roster = {}
-
-    # TODO: use roster['chunk'] instead?
-    for chunk in roster.values():
-        for user in chunk:
-            if user['type'] != 'm.room.member':
-                continue
-            if user['content'] and \
-               user['content']['membership'] in ('join', 'invite') and \
-               'displayname' in user['content']:
-                name = escape_name(user['content']['displayname'])
-                status = user['content']['membership']
-                if user['content']['membership'] == 'join':
-                    # this member is already in the room
-                    user_id = user['user_id']
-                else:
-                    # this member is only invited to the room.
-                    # user['user_id'] is the sender of the invite,
-                    # use fake user id.
-                    user_id = "@{}:<invited>".format(name)
-                ret.append("chat: user: {} {} {} {} {}".format(
-                    account.aid, chat, user_id, name, status))
-
+    client.enqueue_command("chat_users", (chat, ))
     return ret
 
 
