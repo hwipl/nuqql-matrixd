@@ -299,6 +299,8 @@ class NuqqlClient():
                 self._chat_part(params[0])
             if cmd == "chat_users":
                 self._chat_users(params[0])
+            if cmd == "chat_invite":
+                self._chat_invite(params[0], params[1])
 
     def _send_message(self, message_tuple):
         """
@@ -427,6 +429,24 @@ class NuqqlClient():
                     self.messages.append("chat: user: {} {} {} {} {}".format(
                         self.account.aid, chat, user_id, name, status))
                     self.lock.release()
+
+    def _chat_invite(self, chat, user_id):
+        """
+        Invite user to chat
+        """
+
+        rooms = get_rooms(self)
+        for room in rooms.values():
+            if unescape_name(chat) == room.display_name or \
+               unescape_name(chat) == room.room_id:
+                try:
+                    room.invite_user(user_id)
+                except MatrixRequestError as error:
+                    self.lock.acquire()
+                    self.messages.append("error: code: {} content: {}".format(
+                        error.code, error.content))
+                    self.lock.release()
+                    return
 
     def update_buddies(self):
         """
@@ -682,15 +702,7 @@ def chat_invite(account, chat, user_id):
         # no active connection
         return ""
 
-    rooms = get_rooms(client)
-    for room in rooms.values():
-        if unescape_name(chat) == room.display_name or \
-           unescape_name(chat) == room.room_id:
-            try:
-                room.invite_user(user_id)
-            except MatrixRequestError as error:
-                return "error: code: {} content: {}".format(error.code,
-                                                            error.content)
+    client.enqueue_command("chat_invite", (chat, user_id))
     return ""
 
 
