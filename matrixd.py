@@ -293,6 +293,8 @@ class NuqqlClient():
                 self._send_message(params)
             if cmd == "chat_list":
                 self._chat_list()
+            if cmd == "chat_join":
+                self._chat_join(params[0], params[1])
 
     def _send_message(self, message_tuple):
         """
@@ -328,6 +330,20 @@ class NuqqlClient():
             self.messages.append("chat: list: {} {} {} {}".format(
                 self.account.aid, room.room_id, escape_name(room.display_name),
                 self.user))
+            self.lock.release()
+
+    def _chat_join(self, chat, _nick):
+        """
+        Join chat on account
+        """
+
+        try:
+            self.client.join_room(unescape_name(chat))
+        except MatrixRequestError as error:
+            self.lock.acquire()
+            self.messages.append(
+                "error: code: {} content: {}".format(error.code,
+                                                     error.content))
             self.lock.release()
 
     def update_buddies(self):
@@ -529,10 +545,7 @@ def chat_join(account, chat, nick=""):
         # no active connection
         return ""
 
-    try:
-        client.client.join_room(unescape_name(chat))
-    except MatrixRequestError as error:
-        return "error: code: {} content: {}".format(error.code, error.content)
+    client.enqueue_command("chat_join", (chat, nick))
     return ""
 
 
