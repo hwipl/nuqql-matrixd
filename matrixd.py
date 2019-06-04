@@ -96,7 +96,7 @@ class NuqqlClient():
         tstamp = int(int(event["origin_server_ts"])/1000)
 
         # get room name
-        rooms = get_rooms(self)
+        rooms = self._get_rooms()
         room_name = rooms[room_id].display_name
 
         # check membership type
@@ -319,7 +319,7 @@ class NuqqlClient():
         # create message from message tuple and send it
         dest, msg, html_msg, mtype = message_tuple
 
-        rooms = get_rooms(self)
+        rooms = self._get_rooms()
         for room in rooms.values():
             if dest in (room.display_name, room.room_id):
                 try:
@@ -352,7 +352,7 @@ class NuqqlClient():
         List active chats of account
         """
 
-        rooms = get_rooms(self)
+        rooms = self._get_rooms()
         for room in rooms.values():
             self.lock.acquire()
             self.messages.append("chat: list: {} {} {} {}".format(
@@ -379,7 +379,7 @@ class NuqqlClient():
         """
 
         # part an already joined room
-        rooms = get_rooms(self)
+        rooms = self._get_rooms()
         for room in rooms.values():
             if unescape_name(chat) == room.display_name or \
                unescape_name(chat) == room.room_id:
@@ -419,7 +419,7 @@ class NuqqlClient():
         """
 
         roster = {}
-        rooms = get_rooms(self)
+        rooms = self._get_rooms()
         for room_id, room in rooms.items():
             if unescape_name(chat) == room.display_name or \
                unescape_name(chat) == room_id:
@@ -457,7 +457,7 @@ class NuqqlClient():
         Invite user to chat
         """
 
-        rooms = get_rooms(self)
+        rooms = self._get_rooms()
         for room in rooms.values():
             if unescape_name(chat) == room.display_name or \
                unescape_name(chat) == room.room_id:
@@ -487,7 +487,7 @@ class NuqqlClient():
         self.buddies = []
 
         # get buddies/rooms
-        rooms = get_rooms(self)
+        rooms = self._get_rooms()
         for room in rooms.values():
             name = escape_name(room.display_name)
 
@@ -520,6 +520,18 @@ class NuqqlClient():
             return
 
         self.client.listen_for_events(timeout_ms=int(timeout * 1000))
+
+    def _get_rooms(self):
+        """
+        Get list of rooms
+        """
+
+        try:
+            rooms = self.client.get_rooms()
+        except MatrixRequestError as error:
+            print(error)
+            rooms = []
+        return rooms
 
 
 def update_buddies(account):
@@ -726,19 +738,6 @@ def chat_invite(account, chat, user_id):
 
     client.enqueue_command("chat_invite", (chat, user_id))
     return ""
-
-
-def get_rooms(client):
-    """
-    Get list of rooms
-    """
-
-    try:
-        rooms = client.client.get_rooms()
-    except MatrixRequestError as error:
-        print(error)
-        rooms = []
-    return rooms
 
 
 def escape_name(name):
