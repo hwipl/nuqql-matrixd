@@ -291,6 +291,8 @@ class NuqqlClient():
         for cmd, params in queue:
             if cmd == "message":
                 self._send_message(params)
+            if cmd == "chat_list":
+                self._chat_list()
 
     def _send_message(self, message_tuple):
         """
@@ -314,6 +316,19 @@ class NuqqlClient():
                     # TODO: return error to connected user?
                     print(error)
                 return
+
+    def _chat_list(self):
+        """
+        List active chats of account
+        """
+
+        rooms = get_rooms(self)
+        for room in rooms.values():
+            self.lock.acquire()
+            self.messages.append("chat: list: {} {} {} {}".format(
+                self.account.aid, room.room_id, escape_name(room.display_name),
+                self.user))
+            self.lock.release()
 
     def update_buddies(self):
         """
@@ -499,11 +514,7 @@ def chat_list(account):
         # no active connection
         return ret
 
-    rooms = get_rooms(client)
-    for room in rooms.values():
-        ret.append("chat: list: {} {} {} {}".format(
-            account.aid, room.room_id, escape_name(room.display_name),
-            client.user))
+    client.enqueue_command("chat_list", ())
     return ret
 
 
