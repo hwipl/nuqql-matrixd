@@ -179,9 +179,7 @@ class NuqqlClient():
         invite = room_id, room_name, sender, sender_name, tstamp
 
         # add event to event list
-        self.lock.acquire()
         self.room_invites[room_id] = invite
-        self.lock.release()
 
     def leave_listener(self, room_id, event):
         """
