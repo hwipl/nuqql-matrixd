@@ -29,7 +29,10 @@ class NuqqlClient():
     Nuqql Client Class
     """
 
-    def __init__(self, lock):
+    def __init__(self, account, lock):
+        # account
+        self.account = account
+
         # server connection
         self.client = None
         self.token = None
@@ -197,9 +200,10 @@ class NuqqlClient():
 
         # save timestamp and message in messages list and history
         tstamp = int(int(msg["origin_server_ts"])/1000)
+        formatted_msg = format_message(self.account, tstamp, msg)
         self.lock.acquire()
-        self.messages.append((tstamp, msg))
-        self.history.append((tstamp, msg))
+        self.messages.append(formatted_msg)
+        self.history.append(formatted_msg)
         self.lock.release()
 
     def muc_message(self, msg):
@@ -390,24 +394,21 @@ def update_buddies(account):
     client.lock.release()
 
 
-def format_messages(account, messages):
+def format_message(account, tstamp, msg):
     """
     format messages for get_messages() and collect_messages()
     """
 
-    ret = []
-    for tstamp, msg in messages:
-        # nuqql expects html-escaped messages; construct them
-        # TODO: move message parsing into NuqqlClient?
-        msg_body = msg["content"]["body"]
-        msg_body = html.escape(msg_body)
-        msg_body = "<br/>".join(msg_body.split("\n"))
-        sender = msg["sender"]
-        dest = msg["room_id"]
-        ret_str = "message: {} {} {} {} {}".format(account.aid, dest, tstamp,
-                                                   sender, msg_body)
-        ret.append(ret_str)
-    return ret
+    # nuqql expects html-escaped messages; construct them
+    # TODO: move message parsing into NuqqlClient?
+    msg_body = msg["content"]["body"]
+    msg_body = html.escape(msg_body)
+    msg_body = "<br/>".join(msg_body.split("\n"))
+    sender = msg["sender"]
+    dest = msg["room_id"]
+    ret_str = "message: {} {} {} {} {}".format(account.aid, dest, tstamp,
+                                               sender, msg_body)
+    return ret_str
 
 
 def format_events(account, events):
@@ -438,7 +439,7 @@ def get_messages(account):
         return []
 
     # get messages
-    messages = format_messages(account, client.get_messages())
+    messages = client.get_messages()
 
     # get events
     # TODO: add function call for events in based.py and new message format?
@@ -459,11 +460,8 @@ def collect_messages(account):
         # no active connection
         return []
 
-    # collect messages
-    messages = client.collect()
-
-    # format and return them
-    return format_messages(account, messages)
+    # collect and return messages
+    return client.collect()
 
 
 def send_message(account, dest, msg, msg_type="chat"):
@@ -578,6 +576,7 @@ def chat_part(account, chat):
                                                             error.content)
             return ""
     # part a room we are invited to
+    # TODO: add locking
     for invite in client.room_invites.values():
         room_id, room_name, _sender, _sender_name, _tstamp = invite
         if unescape_name(chat) == room_name or \
@@ -724,7 +723,7 @@ def run_client(account, ready, running):
     url = "http://" + url
 
     # init client connection
-    client = NuqqlClient(lock)
+    client = NuqqlClient(account, lock)
 
     # save client connection in active connections dictionary
     CONNECTIONS[account.aid] = client
