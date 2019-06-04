@@ -291,6 +291,8 @@ class NuqqlClient():
         for cmd, params in queue:
             if cmd == "message":
                 self._send_message(params)
+            if cmd == "set_status":
+                self._set_status(params[0])
             if cmd == "chat_list":
                 self._chat_list()
             if cmd == "chat_join":
@@ -324,6 +326,14 @@ class NuqqlClient():
                     # TODO: return error to connected user?
                     print(error)
                 return
+
+    def _set_status(self, status):
+        """
+        Set the current status of the account
+        """
+
+        # TODO: do something when status changes, e.g., from offline to online?
+        self.status = status
 
     def _chat_list(self):
         """
@@ -602,8 +612,7 @@ def set_status(account, status):
         # no active connection
         return
 
-    # TODO: do something when status changes, e.g., from offline to online?
-    client.status = status
+    client.enqueue_command("set_status", (status, ))
 
 
 def get_status(account):
