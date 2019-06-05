@@ -601,9 +601,9 @@ def collect_messages(account):
     return client.collect()
 
 
-def send_message(account, dest, msg, msg_type="chat"):
+def enqueue(account, cmd, params):
     """
-    send a message to a destination  on an account
+    Helper for adding commands to the command queue of the account/client
     """
 
     try:
@@ -611,6 +611,14 @@ def send_message(account, dest, msg, msg_type="chat"):
     except KeyError:
         # no active connection
         return
+
+    client.enqueue_command(cmd, params)
+
+
+def send_message(account, dest, msg, msg_type="chat"):
+    """
+    send a message to a destination  on an account
+    """
 
     # nuqql sends a html-escaped message; construct "plain-text" version and
     # xhtml version using nuqql's message and use them as message body later
@@ -620,8 +628,7 @@ def send_message(account, dest, msg, msg_type="chat"):
     msg = "\n".join(re.split("<br/>", msg, flags=re.IGNORECASE))
 
     # send message
-    client.enqueue_command("message", (unescape_name(dest), msg, html_msg,
-                                       msg_type))
+    enqueue(account, "message", (unescape_name(dest), msg, html_msg, msg_type))
 
 
 def set_status(account, status):
@@ -629,13 +636,7 @@ def set_status(account, status):
     Set the current status of the account
     """
 
-    try:
-        client = CONNECTIONS[account.aid]
-    except KeyError:
-        # no active connection
-        return
-
-    client.enqueue_command("set_status", (status, ))
+    enqueue(account, "set_status", (status, ))
 
 
 def get_status(account):
@@ -643,13 +644,7 @@ def get_status(account):
     Get the current status of the account
     """
 
-    try:
-        client = CONNECTIONS[account.aid]
-    except KeyError:
-        # no active connection
-        return ""
-
-    client.enqueue_command("get_status", ())
+    enqueue(account, "get_status", ())
     return ""
 
 
@@ -658,15 +653,8 @@ def chat_list(account):
     List active chats of account
     """
 
-    ret = []
-    try:
-        client = CONNECTIONS[account.aid]
-    except KeyError:
-        # no active connection
-        return ret
-
-    client.enqueue_command("chat_list", ())
-    return ret
+    enqueue(account, "chat_list", ())
+    return []
 
 
 def chat_join(account, chat, nick=""):
@@ -674,13 +662,7 @@ def chat_join(account, chat, nick=""):
     Join chat on account
     """
 
-    try:
-        client = CONNECTIONS[account.aid]
-    except KeyError:
-        # no active connection
-        return ""
-
-    client.enqueue_command("chat_join", (chat, nick))
+    enqueue(account, "chat_join", (chat, nick))
     return ""
 
 
@@ -689,13 +671,7 @@ def chat_part(account, chat):
     Leave chat on account
     """
 
-    try:
-        client = CONNECTIONS[account.aid]
-    except KeyError:
-        # no active connection
-        return ""
-
-    client.enqueue_command("chat_part", (chat, ))
+    enqueue(account, "chat_part", (chat, ))
     return ""
 
 
@@ -713,15 +689,8 @@ def chat_users(account, chat):
     Get list of users in chat on account
     """
 
-    ret = []
-    try:
-        client = CONNECTIONS[account.aid]
-    except KeyError:
-        # no active connection
-        return ret
-
-    client.enqueue_command("chat_users", (chat, ))
-    return ret
+    enqueue(account, "chat_users", (chat, ))
+    return []
 
 
 def chat_invite(account, chat, user_id):
@@ -729,13 +698,7 @@ def chat_invite(account, chat, user_id):
     Invite user to chat
     """
 
-    try:
-        client = CONNECTIONS[account.aid]
-    except KeyError:
-        # no active connection
-        return ""
-
-    client.enqueue_command("chat_invite", (chat, user_id))
+    enqueue(account, "chat_invite", (chat, user_id))
     return ""
 
 
