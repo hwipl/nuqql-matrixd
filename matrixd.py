@@ -518,7 +518,10 @@ class NuqqlClient():
         if not timeout or self.status == "offline":
             return
 
-        self.client.listen_for_events(timeout_ms=int(timeout * 1000))
+        try:
+            self.client.listen_for_events(timeout_ms=int(timeout * 1000))
+        except MatrixRequestError as error:
+            print(error)
 
     def _get_rooms(self):
         """
