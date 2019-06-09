@@ -114,8 +114,8 @@ class NuqqlClient():
 
         # generic event, return as message
         # TODO: change parsing in nuqql and use char + / + sender here?
-        formatted_msg = "message: {} {} {} {} {}".format(
-            self.account.aid, room_id, tstamp, sender, msg)
+        formatted_msg = based.MESSAGE_FORMAT.format(self.account.aid, room_id,
+                                                    tstamp, sender, msg)
 
         # add event to event list
         self.lock.acquire()
@@ -343,8 +343,8 @@ class NuqqlClient():
         """
 
         self.lock.acquire()
-        self.messages.append("status: account {} status: {}".format(
-            self.account.aid, self.status))
+        self.messages.append(based.STATUS_FORMAT.format(self.account.aid,
+                                                        self.status))
         self.lock.release()
 
     def _chat_list(self):
@@ -355,7 +355,7 @@ class NuqqlClient():
         rooms = self._get_rooms()
         for room in rooms.values():
             self.lock.acquire()
-            self.messages.append("chat: list: {} {} {} {}".format(
+            self.messages.append(based.CHAT_LIST_FORMAT.format(
                 self.account.aid, room.room_id, escape_name(room.display_name),
                 self.user))
             self.lock.release()
@@ -448,7 +448,7 @@ class NuqqlClient():
                         # use fake user id.
                         user_id = "@{}:<invited>".format(name)
                     self.lock.acquire()
-                    self.messages.append("chat: user: {} {} {} {} {}".format(
+                    self.messages.append(based.CHAT_USER_FORMAT.format(
                         self.account.aid, chat, user_id, name, status))
                     self.lock.release()
 
