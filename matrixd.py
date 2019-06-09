@@ -202,7 +202,9 @@ class NuqqlClient():
 
         # save timestamp and message in messages list and history
         tstamp = int(int(msg["origin_server_ts"])/1000)
-        formatted_msg = format_message(self.account, tstamp, msg)
+        formatted_msg = based.format_message(
+            self.account, tstamp, msg["sender"], msg["room_id"],
+            msg["content"]["body"])
         self.lock.acquire()
         self.messages.append(formatted_msg)
         self.history.append(formatted_msg)
@@ -555,23 +557,6 @@ def update_buddies(account):
     for buddy in client.buddies:
         account.buddies.append(buddy)
     client.lock.release()
-
-
-def format_message(account, tstamp, msg):
-    """
-    format messages for get_messages() and collect_messages()
-    """
-
-    # nuqql expects html-escaped messages; construct them
-    # TODO: move message parsing into NuqqlClient?
-    msg_body = msg["content"]["body"]
-    msg_body = html.escape(msg_body)
-    msg_body = "<br/>".join(msg_body.split("\n"))
-    sender = msg["sender"]
-    dest = msg["room_id"]
-    ret_str = "message: {} {} {} {} {}".format(account.aid, dest, tstamp,
-                                               sender, msg_body)
-    return ret_str
 
 
 def get_messages(account):
