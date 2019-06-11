@@ -18,6 +18,7 @@ from matrix_client.errors import MatrixRequestError
 
 
 import based
+from based import Format
 
 # dictionary for all client connections
 CONNECTIONS = {}
@@ -114,8 +115,8 @@ class NuqqlClient():
 
         # generic event, return as message
         # TODO: change parsing in nuqql and use char + / + sender here?
-        formatted_msg = based.Format.MESSAGE.format(self.account.aid, room_id,
-                                                    tstamp, sender, msg)
+        formatted_msg = Format.MESSAGE.format(self.account.aid, room_id,
+                                              tstamp, sender, msg)
 
         # add event to event list
         self.lock.acquire()
@@ -343,8 +344,8 @@ class NuqqlClient():
         """
 
         self.lock.acquire()
-        self.messages.append(based.Format.STATUS.format(self.account.aid,
-                                                        self.status))
+        self.messages.append(Format.STATUS.format(self.account.aid,
+                                                  self.status))
         self.lock.release()
 
     def _chat_list(self):
@@ -355,7 +356,7 @@ class NuqqlClient():
         rooms = self._get_rooms()
         for room in rooms.values():
             self.lock.acquire()
-            self.messages.append(based.Format.CHAT_LIST.format(
+            self.messages.append(Format.CHAT_LIST.format(
                 self.account.aid, room.room_id, escape_name(room.display_name),
                 self.user))
             self.lock.release()
@@ -448,7 +449,7 @@ class NuqqlClient():
                         # use fake user id.
                         user_id = "@{}:<invited>".format(name)
                     self.lock.acquire()
-                    self.messages.append(based.Format.CHAT_USER.format(
+                    self.messages.append(Format.CHAT_USER.format(
                         self.account.aid, chat, user_id, name, status))
                     self.lock.release()
 
