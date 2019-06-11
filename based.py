@@ -15,12 +15,46 @@ import html
 import sys
 import os
 
+from enum import Enum, auto
+
 import daemon
 
 ACCOUNTS = {}
 LOGGERS = {}
 CALLBACKS = {}
 ARGS = None
+
+
+class Callback(Enum):
+    """
+    CALLBACKS constants
+    """
+
+    SEND_MESSAGE = auto()
+    GET_MESSAGES = auto()
+    COLLECT_MESSAGES = auto()
+    ADD_ACCOUNT = auto()
+    DEL_ACCOUNT = auto()
+    UPDATE_BUDDIES = auto()
+    GET_STATUS = auto()
+    SET_STATUS = auto()
+    CHAT_LIST = auto()
+    CHAT_JOIN = auto()
+    CHAT_PART = auto()
+    CHAT_USERS = auto()
+    CHAT_SEND = auto()
+    CHAT_INVITE = auto()
+
+
+def callback(cb_name, params):
+    """
+    Call callback if it is registered
+    """
+
+    if cb_name in CALLBACKS:
+        return CALLBACKS[cb_name](cb_name, params)
+
+    return ""
 
 
 class Buddy:
@@ -55,8 +89,7 @@ class Account:
         """
 
         # try to send message
-        if "send_message" in CALLBACKS:
-            CALLBACKS["send_message"](self, user, msg)
+        callback(Callback.SEND_MESSAGE, (self, user, msg))
 
         # log message
         log_msg = "message: to {0}: {1}".format(user, msg)
@@ -78,16 +111,12 @@ class NuqqlBaseHandler(socketserver.BaseRequestHandler):
         Handle messages coming from the backend connections
         """
 
-        # if there is no callback for messages, simply stop here
-        if "get_messages" not in CALLBACKS:
-            return
-
+        # get messages from callback for each account
         for account in ACCOUNTS.values():
-            messages = CALLBACKS["get_messages"](account)
-            for msg in messages:
-                msg = msg + "\r\n"
-                msg = msg.encode()
-                self.request.sendall(msg)
+            messages = callback(Callback.GET_MESSAGES, (account))
+            if messages:
+                messages = messages.encode()
+                self.request.sendall(messages)
 
     def handle_messages(self):
         """
@@ -95,7 +124,7 @@ class NuqqlBaseHandler(socketserver.BaseRequestHandler):
         """
 
         # try to find first complete message
-        eom = self.buffer.find(b"\r\n")
+        eom = self.buffer.find(Format.EOM.encode())
         while eom != -1:
             # extract message from buffer
             msg = self.buffer[:eom]
@@ -103,7 +132,7 @@ class NuqqlBaseHandler(socketserver.BaseRequestHandler):
 
             # check if there is another complete message, for
             # next loop iteration
-            eom = self.buffer.find(b"\r\n")
+            eom = self.buffer.find(Format.EOM.encode())
 
             # start message handling
             try:
@@ -118,7 +147,6 @@ class NuqqlBaseHandler(socketserver.BaseRequestHandler):
                 continue
 
             # construct reply and send it back
-            reply = reply + "\r\n"
             reply = reply.encode()
             self.request.sendall(reply)
 
@@ -150,13 +178,21 @@ class NuqqlBaseHandler(socketserver.BaseRequestHandler):
                 return
 
 
-# message format strings
-ACCOUNT_FORMAT = "account: {0} ({1}) {2} {3} [{4}]"
-BUDDY_FORMAT = "buddy: {0} status: {1} name: {2} alias: {3}"
-STATUS_FORMAT = "status: account {0} status: {1}"
-MESSAGE_FORMAT = "message: {0} {1} {2} {3} {4}"
-CHAT_USER_FORMAT = "chat: user: {0} {1} {2} {3} {4}"
-CHAT_LIST_FORMAT = "chat: list: {0} {1} {2} {3}"
+class Format(str, Enum):
+    """
+    Message format strings
+    """
+
+    EOM = "\r\n"
+    ACCOUNT = "account: {0} ({1}) {2} {3} [{4}]" + EOM
+    BUDDY = "buddy: {0} status: {1} name: {2} alias: {3}" + EOM
+    STATUS = "status: account {0} status: {1}" + EOM
+    MESSAGE = "message: {0} {1} {2} {3} {4}" + EOM
+    CHAT_USER = "chat: user: {0} {1} {2} {3} {4}" + EOM
+    CHAT_LIST = "chat: list: {0} {1} {2} {3}" + EOM
+
+    def __str__(self):
+        return str(self.value)
 
 
 def handle_account_list():
@@ -166,7 +202,7 @@ def handle_account_list():
 
     replies = []
     for account in ACCOUNTS.values():
-        reply = ACCOUNT_FORMAT.format(account.aid, account.name, account.type,
+        reply = Format.ACCOUNT.format(account.aid, account.name, account.type,
                                       account.user, account.status)
         replies.append(reply)
 
@@ -174,9 +210,8 @@ def handle_account_list():
     log_msg = "account list: {0}".format(replies)
     LOGGERS["main"].info(log_msg)
 
-    # return a single string containing "\r\n" as line separator.
-    # BaseHandler.handle will add the final "\r\n"
-    return "\r\n".join(replies)
+    # return a single string
+    return "".join(replies)
 
 
 def _get_account_id():
@@ -246,8 +281,7 @@ def handle_account_add(params):
     LOGGERS["main"].info(log_msg)
 
     # notify callback (if present) about new account
-    if "add_account" in CALLBACKS:
-        CALLBACKS["add_account"](new_acc)
+    callback(Callback.ADD_ACCOUNT, (new_acc))
 
     # inform caller about success
     return "info: new account added."
@@ -270,8 +304,7 @@ def handle_account_delete(acc_id):
     LOGGERS["main"].info(log_msg)
 
     # notify callback (if present) about deleted account
-    if "del_account" in CALLBACKS:
-        CALLBACKS["del_account"](acc_id)
+    callback(Callback.DEL_ACCOUNT, (acc_id))
 
     # inform caller about success
     return "info: account {} deleted.".format(acc_id)
@@ -294,8 +327,7 @@ def handle_account_buddies(acc_id, params):
     # update buddy list
     # if "update_buddies" in ACCOUNTS[acc_id].callbacks:
     #     ACCOUNTS[acc_id].callbacks["update_buddies"](ACCOUNTS[acc_id])
-    if "update_buddies" in CALLBACKS:
-        CALLBACKS["update_buddies"](ACCOUNTS[acc_id])
+    callback(Callback.UPDATE_BUDDIES, (ACCOUNTS[acc_id]))
 
     # filter online buddies?
     online = False
@@ -310,7 +342,7 @@ def handle_account_buddies(acc_id, params):
             continue
 
         # construct replies
-        reply = BUDDY_FORMAT.format(acc_id, buddy.status, buddy.name,
+        reply = Format.BUDDY.format(acc_id, buddy.status, buddy.name,
                                     buddy.alias)
         replies.append(reply)
 
@@ -318,9 +350,8 @@ def handle_account_buddies(acc_id, params):
     log_msg = "account {0} buddies: {1}".format(acc_id, replies)
     LOGGERS[acc_id].info(log_msg)
 
-    # return replies as single string with "\r\n" as line separator.
-    # BaseHandler.handle will add the final "\r\n"
-    return "\r\n".join(replies)
+    # return replies as single string
+    return "".join(replies)
 
 
 def handle_account_collect(acc_id, params):
@@ -343,11 +374,7 @@ def handle_account_collect(acc_id, params):
     LOGGERS[acc_id].info(log_msg)
 
     # collect messages
-    if "collect_messages" in CALLBACKS:
-        return "\r\n".join(CALLBACKS["collect_messages"](ACCOUNTS[acc_id]))
-
-    # nothing there
-    return ""
+    return callback(Callback.COLLECT_MESSAGES, (ACCOUNTS[acc_id]))
 
 
 def handle_account_send(acc_id, params):
@@ -404,11 +431,9 @@ def handle_account_status(acc_id, params):
 
     # get current status
     if params[0] == "get":
-        if "get_status" in CALLBACKS:
-            status = CALLBACKS["get_status"](ACCOUNTS[acc_id])
-        else:
-            status = "online"   # TODO: do it better?
-            return STATUS_FORMAT.format(acc_id, status)
+        status = callback(Callback.GET_STATUS, (ACCOUNTS[acc_id]))
+        if status:
+            return Format.STATUS.format(acc_id, status)
 
     # set current status
     if params[0] == "set":
@@ -416,8 +441,7 @@ def handle_account_status(acc_id, params):
             return ""
 
         status = params[1]
-        if "set_status" in CALLBACKS:
-            CALLBACKS["set_status"](ACCOUNTS[acc_id], status)
+        return callback(Callback.SET_STATUS, (ACCOUNTS[acc_id], status))
     return ""
 
 
@@ -439,8 +463,7 @@ def handle_account_chat(acc_id, params):
 
     # list active chats
     if params[0] == "list":
-        if "chat_list" in CALLBACKS:
-            return "\r\n".join(CALLBACKS["chat_list"](ACCOUNTS[acc_id]))
+        return callback(Callback.CHAT_LIST, (ACCOUNTS[acc_id]))
 
     if len(params) < 2:
         return ""
@@ -448,18 +471,15 @@ def handle_account_chat(acc_id, params):
     chat = params[1]
     # join a chat
     if params[0] == "join":
-        if "chat_join" in CALLBACKS:
-            return CALLBACKS["chat_join"](ACCOUNTS[acc_id], chat)
+        return callback(Callback.CHAT_JOIN, (ACCOUNTS[acc_id], chat))
 
     # leave a chat
     if params[0] == "part":
-        if "chat_part" in CALLBACKS:
-            return CALLBACKS["chat_part"](ACCOUNTS[acc_id], chat)
+        return callback(Callback.CHAT_PART, (ACCOUNTS[acc_id], chat))
 
     # get users in chat
     if params[0] == "users":
-        if "chat_users" in CALLBACKS:
-            return "\r\n".join(CALLBACKS["chat_users"](ACCOUNTS[acc_id], chat))
+        return callback(Callback.CHAT_USERS, (ACCOUNTS[acc_id], chat))
 
     if len(params) < 3:
         return ""
@@ -467,14 +487,12 @@ def handle_account_chat(acc_id, params):
     # invite a user to a chat
     if params[0] == "invite":
         user = params[2]
-        if "chat_invite" in CALLBACKS:
-            return CALLBACKS["chat_invite"](ACCOUNTS[acc_id], chat, user)
+        return callback(Callback.CHAT_INVITE, (ACCOUNTS[acc_id], chat, user))
 
     # send a message to a chat
     if params[0] == "send":
         msg = " ".join(params[2:])
-        if "chat_send" in CALLBACKS:
-            return CALLBACKS["chat_send"](ACCOUNTS[acc_id], chat, msg)
+        return callback(Callback.CHAT_SEND, (ACCOUNTS[acc_id], chat, msg))
 
     return ""
 
@@ -561,7 +579,7 @@ def format_message(account, tstamp, sender, destination, msg):
 
     msg_body = html.escape(msg)
     msg_body = "<br/>".join(msg_body.split("\n"))
-    return MESSAGE_FORMAT.format(account.aid, destination, tstamp, sender,
+    return Format.MESSAGE.format(account.aid, destination, tstamp, sender,
                                  msg_body)
 
 
