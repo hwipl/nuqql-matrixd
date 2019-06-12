@@ -762,7 +762,7 @@ def main():
     based.init_loggers()
 
     # start a client connection for every matrix account in it's own thread
-    for acc in based.ACCOUNTS.values():
+    for acc in based.get_accounts().values():
         if acc.type == "matrix":
             add_account(acc.aid, Callback.ADD_ACCOUNT, (acc, ))
 
