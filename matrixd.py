@@ -305,7 +305,7 @@ class NuqqlClient():
             if cmd == Callback.CHAT_LIST:
                 self._chat_list()
             if cmd == Callback.CHAT_JOIN:
-                self._chat_join(params[0], params[1])
+                self._chat_join(params[0])
             if cmd == Callback.CHAT_PART:
                 self._chat_part(params[0])
             if cmd == Callback.CHAT_USERS:
@@ -367,7 +367,7 @@ class NuqqlClient():
                 self.user))
             self.lock.release()
 
-    def _chat_join(self, chat, _nick):
+    def _chat_join(self, chat):
         """
         Join chat on account
         """
