@@ -201,6 +201,8 @@ class Format(str, Enum):
     """
 
     EOM = "\r\n"
+    INFO = "info: {0}" + EOM
+    ERROR = "error: {0}" + EOM
     ACCOUNT = "account: {0} ({1}) {2} {3} [{4}]" + EOM
     BUDDY = "buddy: {0} status: {1} name: {2} alias: {3}" + EOM
     STATUS = "status: account {0} status: {1}" + EOM
@@ -274,7 +276,7 @@ def handle_account_add(params):
     # make sure the account does not exist
     for acc in ACCOUNTS.values():
         if acc.type == new_acc.type and acc.user == new_acc.user:
-            return "info: account already exists."
+            return Format.INFO.format("account already exists.")
 
     # new account; add it
     ACCOUNTS[new_acc.aid] = new_acc
@@ -301,7 +303,7 @@ def handle_account_add(params):
     callback(new_acc.aid, Callback.ADD_ACCOUNT, (new_acc, ))
 
     # inform caller about success
-    return "info: new account added."
+    return Format.INFO.format("new account added.")
 
 
 def handle_account_delete(acc_id):
@@ -324,7 +326,7 @@ def handle_account_delete(acc_id):
     callback(acc_id, Callback.DEL_ACCOUNT, ())
 
     # inform caller about success
-    return "info: account {} deleted.".format(acc_id)
+    return Format.INFO.format("account {} deleted.".format(acc_id))
 
 
 def handle_account_buddies(acc_id, params):
@@ -532,15 +534,15 @@ def handle_account(parts):
         try:
             acc_id = int(parts[1])
         except ValueError:
-            return "error: invalid account ID"
+            return Format.ERROR.format("invalid account ID")
         command = parts[2]
         params = parts[3:]
         # valid account?
         if acc_id not in ACCOUNTS.keys():
-            return "error: invalid account"
+            return Format.ERROR.format("invalid account")
     else:
         # invalid command, ignore
-        return "error: invalid command"
+        return Format.ERROR.format("invalid command")
 
     if command == "list":
         return handle_account_list()
@@ -568,7 +570,7 @@ def handle_account(parts):
     if command == "chat":
         return handle_account_chat(acc_id, params)
 
-    return "error: unknown command"
+    return Format.ERROR.format("unknown command")
 
 
 def handle_msg(msg):
