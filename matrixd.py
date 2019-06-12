@@ -767,20 +767,20 @@ def main():
             add_account(acc.aid, Callback.ADD_ACCOUNT, (acc, ))
 
     # register callbacks
-    based.CALLBACKS[Callback.ADD_ACCOUNT] = add_account
-    based.CALLBACKS[Callback.DEL_ACCOUNT] = del_account
-    based.CALLBACKS[Callback.UPDATE_BUDDIES] = update_buddies
-    based.CALLBACKS[Callback.GET_MESSAGES] = get_messages
-    based.CALLBACKS[Callback.SEND_MESSAGE] = send_message
-    based.CALLBACKS[Callback.COLLECT_MESSAGES] = collect_messages
-    based.CALLBACKS[Callback.SET_STATUS] = enqueue
-    based.CALLBACKS[Callback.GET_STATUS] = enqueue
-    based.CALLBACKS[Callback.CHAT_LIST] = enqueue
-    based.CALLBACKS[Callback.CHAT_JOIN] = enqueue
-    based.CALLBACKS[Callback.CHAT_PART] = enqueue
-    based.CALLBACKS[Callback.CHAT_SEND] = chat_send
-    based.CALLBACKS[Callback.CHAT_USERS] = enqueue
-    based.CALLBACKS[Callback.CHAT_INVITE] = enqueue
+    based.register_callback(Callback.ADD_ACCOUNT, add_account)
+    based.register_callback(Callback.DEL_ACCOUNT, del_account)
+    based.register_callback(Callback.UPDATE_BUDDIES, update_buddies)
+    based.register_callback(Callback.GET_MESSAGES, get_messages)
+    based.register_callback(Callback.SEND_MESSAGE, send_message)
+    based.register_callback(Callback.COLLECT_MESSAGES, collect_messages)
+    based.register_callback(Callback.SET_STATUS, enqueue)
+    based.register_callback(Callback.GET_STATUS, enqueue)
+    based.register_callback(Callback.CHAT_LIST, enqueue)
+    based.register_callback(Callback.CHAT_JOIN, enqueue)
+    based.register_callback(Callback.CHAT_PART, enqueue)
+    based.register_callback(Callback.CHAT_SEND, chat_send)
+    based.register_callback(Callback.CHAT_USERS, enqueue)
+    based.register_callback(Callback.CHAT_INVITE, enqueue)
 
     # run the server for the nuqql connection
     try:
