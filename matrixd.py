@@ -753,7 +753,7 @@ def main():
     """
 
     # parse command line arguments
-    based.get_command_line_args()
+    args = based.get_command_line_args()
 
     # load accounts
     based.load_accounts()
@@ -784,7 +784,7 @@ def main():
 
     # run the server for the nuqql connection
     try:
-        based.run_server(based.ARGS)
+        based.run_server(args)
     except KeyboardInterrupt:
         # try to terminate all threads
         for thread, running in THREADS.values():
