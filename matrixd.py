@@ -38,6 +38,7 @@ class NuqqlClient():
         self.client = None
         self.token = None
         self.user = ""
+        self.filter_own = True  # Filter own messages?
 
         # data structures
         self.lock = lock
@@ -201,6 +202,10 @@ class NuqqlClient():
         """
         Message handler
         """
+
+        # if filter_own is set, skip own messages
+        if self.filter_own and msg["sender"] == self.user:
+            return
 
         # save timestamp and message in messages list and history
         tstamp = int(int(msg["origin_server_ts"])/1000)
