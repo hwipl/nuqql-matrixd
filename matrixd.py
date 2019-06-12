@@ -61,7 +61,8 @@ class NuqqlClient():
 
         try:
             # initialize matrix client connection
-            self.user = username
+            # construct matrix user name, remove "http://" from url
+            self.user = "@{}:{}".format(username, url[7:])
             self.client = MatrixClient(url)
 
             # add event handlers
