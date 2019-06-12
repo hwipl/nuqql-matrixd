@@ -376,8 +376,8 @@ class NuqqlClient():
             self.client.join_room(unescape_name(chat))
         except MatrixRequestError as error:
             self.lock.acquire()
-            self.messages.append("error: code: {} content: {}".format(
-                error.code, error.content))
+            self.messages.append(Format.ERROR.format(
+                "code: {} content: {}".format(error.code, error.content)))
             self.lock.release()
 
     def _chat_part(self, chat):
@@ -394,8 +394,9 @@ class NuqqlClient():
                     room.leave()
                 except MatrixRequestError as error:
                     self.lock.acquire()
-                    self.messages.append("error: code: {} content: {}".format(
-                        error.code, error.content))
+                    self.messages.append(Format.ERROR.format(
+                        "code: {} content: {}".format(error.code,
+                                                      error.content)))
                     self.lock.release()
                     return
                 return
@@ -409,8 +410,9 @@ class NuqqlClient():
                     self.client.api.leave_room(room_id)
                 except MatrixRequestError as error:
                     self.lock.acquire()
-                    self.messages.append("error: code: {} content: {}".format(
-                        error.code, error.content))
+                    self.messages.append(Format.ERROR.format(
+                        "code: {} content: {}".format(error.code,
+                                                      error.content)))
                     self.lock.release()
                     return
                 # remove room from invites
@@ -472,8 +474,9 @@ class NuqqlClient():
                     room.invite_user(user_id)
                 except MatrixRequestError as error:
                     self.lock.acquire()
-                    self.messages.append("error: code: {} content: {}".format(
-                        error.code, error.content))
+                    self.messages.append(Format.ERROR.format(
+                        "code: {} content: {}".format(error.code,
+                                                      error.content)))
                     self.lock.release()
                     return
 
