@@ -78,7 +78,7 @@ class NuqqlClient():
                                            password=password, sync=False)
 
         except MatrixRequestError as error:
-            print(error)
+            based.LOGGERS[self.account.aid].error(error)
             self.status = "offline"
 
     def _membership_event(self, event):
@@ -92,7 +92,7 @@ class NuqqlClient():
             sender_name = self.client.get_user(sender).get_display_name()
         except MatrixRequestError as error:
             sender_name = sender
-            print(error)
+            based.LOGGERS[self.account.aid].error(error)
         room_id = event["room_id"]
         room_name = room_id
         membership = event["content"]["membership"]
@@ -130,7 +130,7 @@ class NuqqlClient():
         Event listener
         """
 
-        print("listener: {}".format(event))
+        based.LOGGERS[self.account.aid].debug("listener: {}".format(event))
         if event["type"] == "m.room.message":
             self.message(event)
         if event["type"] == "m.room.member":
@@ -141,7 +141,7 @@ class NuqqlClient():
         Presence event listener
         """
 
-        print("presence: {}".format(event))
+        based.LOGGERS[self.account.aid].debug("presence: {}".format(event))
 
     def invite_listener(self, room_id, events):
         """
@@ -163,7 +163,7 @@ class NuqqlClient():
                             self.client.get_user(sender).get_display_name()
                 except MatrixRequestError as error:
                     sender_name = sender
-                    print(error)
+                    based.LOGGERS[self.account.aid].error(error)
 
             # try to get timestamp
             if "origin_server_ts" in event:
@@ -189,14 +189,15 @@ class NuqqlClient():
         Leave event listener
         """
 
-        print("leave: {} {}".format(room_id, event))
+        based.LOGGERS[self.account.aid].debug("leave: {} {}".format(room_id,
+                                                                    event))
 
     def ephemeral_listener(self, event):
         """
         Ephemeral event listener
         """
 
-        print("ephemeral: {}".format(event))
+        based.LOGGERS[self.account.aid].debug("ephemeral: {}".format(event))
 
     def message(self, msg):
         """
@@ -333,7 +334,7 @@ class NuqqlClient():
                     room.send_html(html_msg, body=msg, msgtype='m.text')
                 except MatrixRequestError as error:
                     # TODO: return error to connected user?
-                    print(error)
+                    based.LOGGERS[self.account.aid].error(error)
                 return
 
     def _set_status(self, status):
@@ -435,7 +436,7 @@ class NuqqlClient():
                 try:
                     roster = self.client.api.get_room_members(room_id)
                 except MatrixRequestError as error:
-                    print(error)
+                    based.LOGGERS[self.account.aid].error(error)
                     roster = {}
 
         # TODO: use roster['chunk'] instead?
@@ -533,7 +534,7 @@ class NuqqlClient():
         try:
             self.client.listen_for_events(timeout_ms=int(timeout * 1000))
         except MatrixRequestError as error:
-            print(error)
+            based.LOGGERS[self.account.aid].error(error)
 
     def _get_rooms(self):
         """
@@ -543,7 +544,7 @@ class NuqqlClient():
         try:
             rooms = self.client.get_rooms()
         except MatrixRequestError as error:
-            print(error)
+            based.LOGGERS[self.account.aid].error(error)
             rooms = []
         return rooms
 
