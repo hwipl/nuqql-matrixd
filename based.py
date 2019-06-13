@@ -99,6 +99,7 @@ class Account:
         self.password = password
         self.status = status
         self.buddies = []
+        self.logger = None
 
     def send_msg(self, user, msg):
         """
@@ -290,7 +291,9 @@ def handle_account_add(params):
     os.chmod(account_dir, stat.S_IRWXU)
     account_log = account_dir + "/account.log"
     # logger name must be string
-    LOGGERS[acc_id] = get_logger(str(acc_id), account_log)
+    new_acc.logger = init_logger(str(acc_id), account_log)
+    # TODO: do we still need LOGGERS[acc_id]?
+    LOGGERS[acc_id] = new_acc.logger
     os.chmod(account_log, stat.S_IRUSR | stat.S_IWUSR)
 
     # log event
@@ -657,7 +660,7 @@ def run_server(args):
             run_unix_server(args)
 
 
-def get_logger(name, file_name):
+def init_logger(name, file_name):
     """
     Create a logger with <name>, that logs to <file_name>
     """
@@ -697,7 +700,7 @@ def init_loggers():
 
     # main log
     main_log = logs_dir + "/main.log"
-    LOGGERS["main"] = get_logger("main", main_log)
+    LOGGERS["main"] = init_logger("main", main_log)
     os.chmod(main_log, stat.S_IRUSR | stat.S_IWUSR)
 
     # account logs
@@ -710,8 +713,18 @@ def init_loggers():
         os.chmod(acc_dir, stat.S_IRWXU)
         acc_log = acc_dir + "/account.log"
         # logger name must be string
-        LOGGERS[acc] = get_logger(str(acc), acc_log)
+        ACCOUNTS[acc].logger = init_logger(str(acc), acc_log)
+        # TODO: do we still need LOGGERS[acc]?
+        LOGGERS[acc] = ACCOUNTS[acc].logger
         os.chmod(acc_log, stat.S_IRUSR | stat.S_IWUSR)
+
+
+def get_logger(name):
+    """
+    Helper for getting the logger with the name <name>
+    """
+
+    return LOGGERS[name]
 
 
 def store_accounts():
