@@ -78,7 +78,7 @@ class NuqqlClient():
                                            password=password, sync=False)
 
         except MatrixRequestError as error:
-            based.LOGGERS[self.account.aid].error(error)
+            self.account.logger.error(error)
             self.status = "offline"
 
     def _membership_event(self, event):
@@ -92,7 +92,7 @@ class NuqqlClient():
             sender_name = self.client.get_user(sender).get_display_name()
         except MatrixRequestError as error:
             sender_name = sender
-            based.LOGGERS[self.account.aid].error(error)
+            self.account.logger.error(error)
         room_id = event["room_id"]
         room_name = room_id
         membership = event["content"]["membership"]
@@ -130,7 +130,7 @@ class NuqqlClient():
         Event listener
         """
 
-        based.LOGGERS[self.account.aid].debug("listener: {}".format(event))
+        self.account.logger.debug("listener: {}".format(event))
         if event["type"] == "m.room.message":
             self.message(event)
         if event["type"] == "m.room.member":
@@ -141,7 +141,7 @@ class NuqqlClient():
         Presence event listener
         """
 
-        based.LOGGERS[self.account.aid].debug("presence: {}".format(event))
+        self.account.logger.debug("presence: {}".format(event))
 
     def invite_listener(self, room_id, events):
         """
@@ -163,7 +163,7 @@ class NuqqlClient():
                             self.client.get_user(sender).get_display_name()
                 except MatrixRequestError as error:
                     sender_name = sender
-                    based.LOGGERS[self.account.aid].error(error)
+                    self.account.logger.error(error)
 
             # try to get timestamp
             if "origin_server_ts" in event:
@@ -189,15 +189,14 @@ class NuqqlClient():
         Leave event listener
         """
 
-        based.LOGGERS[self.account.aid].debug("leave: {} {}".format(room_id,
-                                                                    event))
+        self.account.logger.debug("leave: {} {}".format(room_id, event))
 
     def ephemeral_listener(self, event):
         """
         Ephemeral event listener
         """
 
-        based.LOGGERS[self.account.aid].debug("ephemeral: {}".format(event))
+        self.account.logger.debug("ephemeral: {}".format(event))
 
     def message(self, msg):
         """
@@ -334,7 +333,7 @@ class NuqqlClient():
                     room.send_html(html_msg, body=msg, msgtype='m.text')
                 except MatrixRequestError as error:
                     # TODO: return error to connected user?
-                    based.LOGGERS[self.account.aid].error(error)
+                    self.account.logger.error(error)
                 return
 
     def _set_status(self, status):
@@ -436,7 +435,7 @@ class NuqqlClient():
                 try:
                     roster = self.client.api.get_room_members(room_id)
                 except MatrixRequestError as error:
-                    based.LOGGERS[self.account.aid].error(error)
+                    self.account.logger.error(error)
                     roster = {}
 
         # TODO: use roster['chunk'] instead?
@@ -534,7 +533,7 @@ class NuqqlClient():
         try:
             self.client.listen_for_events(timeout_ms=int(timeout * 1000))
         except MatrixRequestError as error:
-            based.LOGGERS[self.account.aid].error(error)
+            self.account.logger.error(error)
 
     def _get_rooms(self):
         """
@@ -544,7 +543,7 @@ class NuqqlClient():
         try:
             rooms = self.client.get_rooms()
         except MatrixRequestError as error:
-            based.LOGGERS[self.account.aid].error(error)
+            self.account.logger.error(error)
             rooms = []
         return rooms
 
