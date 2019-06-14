@@ -367,14 +367,34 @@ class NuqqlClient():
                 self.user))
             self.lock.release()
 
+    def _chat_create(self, name):
+        """
+        Create a group chat room with name <name>
+        """
+
+        try:
+            room = self.client.create_room()
+            room.set_room_name(name)
+        except MatrixRequestError as error:
+            self.lock.acquire()
+            self.messages.append(Format.ERROR.format(
+                "code: {} content: {}".format(error.code, error.content)))
+            self.lock.release()
+
     def _chat_join(self, chat):
         """
         Join chat on account
         """
 
         try:
-            self.client.join_room(unescape_name(chat))
+            chat = unescape_name(chat)
+            self.client.join_room(chat)
         except MatrixRequestError as error:
+            # joining an existing room failed.
+            # if chat is not a room id, try to create a new room
+            if not chat.startswith("!") or ":" not in chat:
+                self._chat_create(chat)
+                return
             self.lock.acquire()
             self.messages.append(Format.ERROR.format(
                 "code: {} content: {}".format(error.code, error.content)))
