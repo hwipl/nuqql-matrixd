@@ -105,14 +105,22 @@ class NuqqlClient():
         # check membership type
         if membership == "invite":
             invited_user = event["content"]["displayname"]
+            user_msg = Format.CHAT_USER.format(self.account.aid, room_id,
+                                               invited_user, invited_user,
+                                               membership)
             msg = "*** {} invited {} to {}. ***".format(sender_name,
                                                         invited_user,
                                                         room_name)
         if membership == "join":
             invited_user = event["content"]["displayname"]
+            user_msg = Format.CHAT_USER.format(self.account.aid, room_id,
+                                               sender, invited_user,
+                                               membership)
             msg = "*** {} joined {}. ***".format(invited_user, room_name)
 
         if membership == "leave":
+            user_msg = Format.CHAT_USER.format(self.account.aid, room_id,
+                                               sender, sender_name, membership)
             msg = "*** {} left {}. ***".format(sender_name, room_name)
 
         # generic event, return as message
@@ -122,6 +130,7 @@ class NuqqlClient():
 
         # add event to event list
         self.lock.acquire()
+        self.messages.append(user_msg)
         self.messages.append(formatted_msg)
         self.lock.release()
 
