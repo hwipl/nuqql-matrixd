@@ -40,6 +40,8 @@ class NuqqlClient():
         self.token = None
         self.user = ""
         self.config = SimpleNamespace(
+            # Send user message to client for membership events?
+            membership_user_msg=True,
             # Filter own messages?
             filter_own=True
         )
@@ -134,8 +136,9 @@ class NuqqlClient():
 
         # add event to event list
         self.lock.acquire()
-        self.messages.append(user_msg)
         self.messages.append(formatted_msg)
+        if self.config.membership_user_msg:
+            self.messages.append(user_msg)
         self.lock.release()
 
     def listener(self, event):
