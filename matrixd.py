@@ -12,6 +12,7 @@ import urllib.parse
 import time
 
 from threading import Thread, Lock, Event
+from types import SimpleNamespace
 
 from matrix_client.client import MatrixClient
 from matrix_client.errors import MatrixRequestError
@@ -38,7 +39,10 @@ class NuqqlClient():
         self.client = None
         self.token = None
         self.user = ""
-        self.filter_own = True  # Filter own messages?
+        self.config = SimpleNamespace(
+            # Filter own messages?
+            filter_own=True
+        )
 
         # data structures
         self.lock = lock
@@ -213,7 +217,7 @@ class NuqqlClient():
         """
 
         # if filter_own is set, skip own messages
-        if self.filter_own and msg["sender"] == self.user:
+        if self.config.filter_own and msg["sender"] == self.user:
             return
 
         # save timestamp and message in messages list and history
