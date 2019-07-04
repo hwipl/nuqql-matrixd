@@ -17,7 +17,9 @@ By default, it listens on TCP port 32000 on your local host. So, you can
 connect with telnet to it, e.g., with `telnet localhost 32000`.
 
 In the telnet session you can:
-* add Matrix accounts with: `account add matrix <username> <password>`.
+* add Matrix accounts with: `account add matrix <account> <password>`.
+  * Note: the format of `<account>` is `<username>@<homeserver>`, e.g.,
+    `dummy_user@matrix.org`.
 * retrieve the list of accounts and their numbers/IDs with `account list`.
 * retrieve your buddy/room list with `account <id> buddies` or `account <id>
   chat list`
@@ -26,5 +28,5 @@ In the telnet session you can:
 
 ## Changes
 
-* devel:
-  * ...
+* v0.1:
+  * First/initial release.
