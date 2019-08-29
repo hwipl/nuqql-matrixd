@@ -133,8 +133,8 @@ class NuqqlClient():
 
         # generic event, return as message
         # TODO: change parsing in nuqql and use char + / + sender here?
-        formatted_msg = Format.MESSAGE.format(self.account.aid, room_id,
-                                              tstamp, sender, msg)
+        formatted_msg = Format.CHAT_MSG.format(self.account.aid, room_id,
+                                               tstamp, sender, msg)
 
         # add event to event list
         self.lock.acquire()
@@ -228,7 +228,7 @@ class NuqqlClient():
 
         # save timestamp and message in messages list and history
         tstamp = int(int(msg["origin_server_ts"])/1000)
-        formatted_msg = based.format_message(
+        formatted_msg = based.format_chat_msg(
             self.account, tstamp, msg["sender"], msg["room_id"],
             msg["content"]["body"])
         self.lock.acquire()
