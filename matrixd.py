@@ -803,11 +803,14 @@ def main():
     # parse command line arguments
     args = based.get_command_line_args()
 
+    # initialize main logger
+    based.init_main_logger()
+
     # load accounts
     based.load_accounts()
 
-    # initialize loggers
-    based.init_loggers()
+    # initialize account loggers
+    based.init_account_loggers()
 
     # start a client connection for every matrix account in it's own thread
     for acc in based.get_accounts().values():
