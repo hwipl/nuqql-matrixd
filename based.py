@@ -700,9 +700,9 @@ def init_logger(name, file_name):
     return logger
 
 
-def init_loggers():
+def init_main_logger():
     """
-    Initialize loggers for main log and account specific logs
+    Initialize logger for main log
     """
 
     # make sure logs directory exists
@@ -714,6 +714,17 @@ def init_loggers():
     main_log = logs_dir + "/main.log"
     LOGGERS["main"] = init_logger("main", main_log)
     os.chmod(main_log, stat.S_IRUSR | stat.S_IWUSR)
+
+
+def init_account_loggers():
+    """
+    Initialize loggers for account specific logs
+    """
+
+    # make sure logs directory exists
+    logs_dir = ARGS.dir + "/logs"
+    pathlib.Path(logs_dir).mkdir(parents=True, exist_ok=True)
+    os.chmod(logs_dir, stat.S_IRWXU)
 
     # account logs
     account_dir = logs_dir + "/account"
@@ -745,12 +756,16 @@ def store_accounts():
     """
 
     accounts_file = pathlib.Path(ARGS.dir + "/accounts.pickle")
-    with open(accounts_file, "wb") as acc_file:
-        # make sure only user can read/write file before storing anything
-        os.chmod(accounts_file, stat.S_IRUSR | stat.S_IWUSR)
+    try:
+        with open(accounts_file, "wb") as acc_file:
+            # make sure only user can read/write file before storing anything
+            os.chmod(accounts_file, stat.S_IRUSR | stat.S_IWUSR)
 
-        # Pickle accounts using the highest protocol available.
-        pickle.dump(ACCOUNTS, acc_file, pickle.HIGHEST_PROTOCOL)
+            # Pickle accounts using the highest protocol available.
+            pickle.dump(ACCOUNTS, acc_file, pickle.HIGHEST_PROTOCOL)
+    except (OSError, pickle.PicklingError) as error:
+        error_msg = "Error storing accounts file: {}".format(error)
+        LOGGERS["main"].error(error_msg)
 
 
 def load_accounts():
@@ -768,11 +783,16 @@ def load_accounts():
     # make sure only user can read/write file before using it
     os.chmod(accounts_file, stat.S_IRUSR | stat.S_IWUSR)
 
-    with open(accounts_file, "rb") as acc_file:
-        # The protocol version used is detected automatically, so we do not
-        # have to specify it.
-        global ACCOUNTS
-        ACCOUNTS = pickle.load(acc_file)
+    try:
+        with open(accounts_file, "rb") as acc_file:
+            # The protocol version used is detected automatically, so we do not
+            # have to specify it.
+            global ACCOUNTS
+            ACCOUNTS = pickle.load(acc_file)
+    except (OSError, pickle.UnpicklingError, AttributeError, EOFError,
+            ImportError, IndexError) as error:
+        error_msg = "Error loading accounts file: {}".format(error)
+        LOGGERS["main"].error(error_msg)
 
 
 def get_accounts():
@@ -818,11 +838,14 @@ if __name__ == "__main__":
     # parse command line arguments
     get_command_line_args()
 
+    # initialize main logger
+    init_main_logger()
+
     # load accounts
     load_accounts()
 
-    # initialize loggers
-    init_loggers()
+    # initialize account loggers
+    init_account_loggers()
 
     # start server
     try:
