@@ -561,19 +561,6 @@ class NuqqlClient():
         self.buddies = buddies
         self.lock.release()
 
-    def process(self, timeout=None):
-        """
-        Process client for timeout seconds
-        """
-
-        if not timeout or self.status == "offline":
-            return
-
-        try:
-            self.client.listen_for_events(timeout_ms=int(timeout * 1000))
-        except MatrixRequestError as error:
-            self.account.logger.error(error)
-
     def _get_rooms(self):
         """
         Get list of rooms
@@ -741,14 +728,20 @@ def run_client(account, ready, running):
     # start client connection
     client.connect(url, user, account.password)
 
+    # start the listener thread in the matrix client
+    client.client.start_listener_thread()
+
     # enter main loop, and keep running until "running" is set to false
     # by the KeyboardInterrupt
     while running.is_set():
-        # process client for 0.1 seconds, then send pending outgoing
-        # messages and update the (safe copy of the) buddy list
-        client.process(timeout=0.1)
+        # send pending outgoing messages and update the (safe copy of the)
+        # buddy list, then sleep a little bit
         client.handle_queue()
         client.update_buddies()
+        time.sleep(0.1)
+
+    # stop the listener thread in the matrix client
+    client.client.stop_listener_thread()
 
 
 def add_account(account_id, _cmd, params):
