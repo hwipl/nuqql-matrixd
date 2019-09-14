@@ -10,6 +10,9 @@ import html
 import re
 import urllib.parse
 import time
+import pathlib
+import os
+import stat
 
 from threading import Thread, Lock, Event
 from types import SimpleNamespace
@@ -698,6 +701,53 @@ def unescape_name(name):
     return urllib.parse.unquote(name)
 
 
+def load_sync_token(acc_id):
+    """
+    Load an old sync token from file if available
+    """
+
+    # make sure path and file exist
+    pathlib.Path(based.ARGS.dir).mkdir(parents=True, exist_ok=True)
+    os.chmod(based.ARGS.dir, stat.S_IRWXU)
+    sync_token_file = pathlib.Path(based.ARGS.dir +
+                                   "/sync_token{}".format(acc_id))
+    if not sync_token_file.exists():
+        open(sync_token_file, "a").close()
+
+    # make sure only user can read/write file before using it
+    os.chmod(sync_token_file, stat.S_IRUSR | stat.S_IWUSR)
+
+    try:
+        with open(sync_token_file, "r") as token_file:
+            token = token_file.readline()
+    except OSError:
+        token = ""
+
+    return token
+
+
+def update_sync_token(acc_id, old, new):
+    """
+    Update an existing sync token with a newer one
+    """
+
+    if old == new:
+        # tokens are not different
+        return old
+
+    # update token file
+    sync_token_file = pathlib.Path(based.ARGS.dir +
+                                   "/sync_token{}".format(acc_id))
+
+    try:
+        with open(sync_token_file, "w") as token_file:
+            token_file.write(new)
+    except OSError:
+        return old
+
+    return new
+
+
 def run_client(account, ready, running):
     """
     Run client connection in a new thread,
@@ -728,16 +778,22 @@ def run_client(account, ready, running):
     # start client connection
     client.connect(url, user, account.password)
 
+    # initialize sync token with last known value
+    sync_token = load_sync_token(account.aid)
+    client.client.sync_token = sync_token
+
     # start the listener thread in the matrix client
     client.client.start_listener_thread()
 
     # enter main loop, and keep running until "running" is set to false
     # by the KeyboardInterrupt
     while running.is_set():
-        # send pending outgoing messages and update the (safe copy of the)
-        # buddy list, then sleep a little bit
+        # send pending outgoing messages, update the (safe copy of the)
+        # buddy list, update the sync token, then sleep a little bit
         client.handle_queue()
         client.update_buddies()
+        sync_token = update_sync_token(account.aid, sync_token,
+                                       client.client.sync_token)
         time.sleep(0.1)
 
     # stop the listener thread in the matrix client
