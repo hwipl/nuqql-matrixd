@@ -84,9 +84,14 @@ class NuqqlClient():
             self.client.add_leave_listener(self.leave_listener)
             self.client.add_ephemeral_listener(self.ephemeral_listener)
 
-            # login
+            # login and limit sync to only retrieve 0 events per room, so we do
+            # not get old messages again. this changes the sync_filter. so, we
+            # have to save the defaults and apply them after login to get
+            # events again.
+            sync_filter = self.client.sync_filter
             self.token = self.client.login(username=username,
-                                           password=password, sync=False)
+                                           password=password, limit=0)
+            self.client.sync_filter = sync_filter
 
         except MatrixRequestError as error:
             self.account.logger.error(error)
