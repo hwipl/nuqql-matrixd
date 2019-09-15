@@ -753,6 +753,19 @@ def update_sync_token(acc_id, old, new):
     return new
 
 
+def delete_sync_token(acc_id):
+    """
+    Delete the sync token file for the account, called when account is removed
+    """
+
+    sync_token_file = pathlib.Path(based.ARGS.dir +
+                                   "/sync_token{}".format(acc_id))
+    if not sync_token_file.exists():
+        return
+
+    os.remove(sync_token_file)
+
+
 def parse_account_user(acc_user):
     """
     Parse the user configured in the account to extract the matrix user, domain
@@ -868,6 +881,9 @@ def del_account(account_id, _cmd, _params):
     thread, running = THREADS[account_id]
     running.clear()
     thread.join()
+
+    # delete sync token file
+    delete_sync_token(account_id)
 
     # cleanup
     del CONNECTIONS[account_id]
