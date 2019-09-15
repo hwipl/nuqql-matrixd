@@ -66,15 +66,15 @@ class NuqqlClient():
         # room = client.create_room("my_room_alias")
         # room.send_text("Hello!")
 
-    def connect(self, url, username, password):
+    def connect(self, url, username, domain, password):
         """
         Connect to server
         """
 
         try:
             # initialize matrix client connection
-            # construct matrix user name, remove "https://" from url
-            self.user = "@{}:{}".format(username, url[8:])
+            # construct matrix user name with user and domain name
+            self.user = "@{}:{}".format(username, domain)
             self.client = MatrixClient(url)
 
             # add event handlers
@@ -768,8 +768,8 @@ def run_client(account, ready, running):
     lock = Lock()
 
     # parse user to get url and username
-    user, url = account.user.split("@", maxsplit=1)
-    url = "https://" + url
+    user, domain = account.user.split("@", maxsplit=1)
+    url = "https://" + domain
 
     # init client connection
     client = NuqqlClient(account, lock)
@@ -781,7 +781,7 @@ def run_client(account, ready, running):
     ready.set()
 
     # start client connection
-    client.connect(url, user, account.password)
+    client.connect(url, user, domain, account.password)
 
     # initialize sync token with last known value
     sync_token = load_sync_token(account.aid)
