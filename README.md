@@ -8,7 +8,18 @@ connect to Matrix chat networks. It can be used as a backend for
 nuqql-matrixd is a fork of [nuqql-based](https://github.com/hwipl/nuqql-based)
 that adds the Matrix Python SDK for Matrix support. Thus, the [Matrix Python
 SDK](https://github.com/matrix-org/matrix-python-sdk) is a requirement to run
-nuqql-matrixd.
+nuqql-matrixd. Another optional dependency is
+[daemon](https://pypi.org/project/python-daemon/), that is needed to run
+slixmppd in daemon mode.
+
+
+## Quick Start
+
+Make sure you have installed nuqql-matrixd's dependencies:
+* [Matrix Python SDK](https://github.com/matrix-org/matrix-python-sdk): for
+  Matrix support
+* [daemon](https://pypi.org/project/python-daemon/) (optional): for daemonize
+  support
 
 You can run nuqql-matrixd by executing *matrixd.py*, e.g., with
 `./matrixd.py`.
@@ -24,6 +35,28 @@ In the telnet session you can:
 * retrieve your buddy/room list with `account <id> buddies` or `account <id>
   chat list`
 * send a message to a room with `account <id> chat send <room> <message>`
+
+
+## Usage
+
+See `matrixd.py --help` for a list of command line arguments:
+
+```
+usage: matrixd.py [-h] [--af {inet,unix}] [--address ADDRESS] [--port PORT]
+                  [--sockfile SOCKFILE] [--dir DIR] [-d]
+
+Run nuqql backend.
+
+optional arguments:
+  -h, --help           show this help message and exit
+  --af {inet,unix}     socket address family: "inet" for AF_INET, "unix" for
+                       AF_UNIX
+  --address ADDRESS    AF_INET listen address
+  --port PORT          AF_INET listen port
+  --sockfile SOCKFILE  AF_UNIX socket file in DIR
+  --dir DIR            working directory
+  -d, --daemonize      daemonize process
+```
 
 
 ## Changes
