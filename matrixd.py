@@ -712,9 +712,9 @@ def load_sync_token(acc_id):
     """
 
     # make sure path and file exist
-    pathlib.Path(based.ARGS.dir).mkdir(parents=True, exist_ok=True)
-    os.chmod(based.ARGS.dir, stat.S_IRWXU)
-    sync_token_file = pathlib.Path(based.ARGS.dir +
+    pathlib.Path(based.CONFIG["dir"]).mkdir(parents=True, exist_ok=True)
+    os.chmod(based.CONFIG["dir"], stat.S_IRWXU)
+    sync_token_file = pathlib.Path(based.CONFIG["dir"] +
                                    "/sync_token{}".format(acc_id))
     if not sync_token_file.exists():
         open(sync_token_file, "a").close()
@@ -741,7 +741,7 @@ def update_sync_token(acc_id, old, new):
         return old
 
     # update token file
-    sync_token_file = pathlib.Path(based.ARGS.dir +
+    sync_token_file = pathlib.Path(based.CONFIG["dir"] +
                                    "/sync_token{}".format(acc_id))
 
     try:
@@ -758,7 +758,7 @@ def delete_sync_token(acc_id):
     Delete the sync token file for the account, called when account is removed
     """
 
-    sync_token_file = pathlib.Path(based.ARGS.dir +
+    sync_token_file = pathlib.Path(based.CONFIG["dir"] +
                                    "/sync_token{}".format(acc_id))
     if not sync_token_file.exists():
         return
@@ -908,8 +908,8 @@ def main():
     Main function, initialize everything and start server
     """
 
-    # parse command line arguments
-    args = based.get_command_line_args()
+    # initialize configuration from command line and config file
+    config = based.init_config()
 
     # initialize main logger
     based.init_main_logger()
@@ -944,7 +944,7 @@ def main():
 
     # run the server for the nuqql connection
     try:
-        based.run_server(args)
+        based.run_server(config)
     except KeyboardInterrupt:
         # try to terminate all threads
         for _thread, running in THREADS.values():
