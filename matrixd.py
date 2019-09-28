@@ -712,9 +712,10 @@ def load_sync_token(acc_id):
     """
 
     # make sure path and file exist
-    pathlib.Path(based.CONFIG["dir"]).mkdir(parents=True, exist_ok=True)
-    os.chmod(based.CONFIG["dir"], stat.S_IRWXU)
-    sync_token_file = pathlib.Path(based.CONFIG["dir"] +
+    config = based.get_config()
+    pathlib.Path(config["dir"]).mkdir(parents=True, exist_ok=True)
+    os.chmod(config["dir"], stat.S_IRWXU)
+    sync_token_file = pathlib.Path(config["dir"] +
                                    "/sync_token{}".format(acc_id))
     if not sync_token_file.exists():
         open(sync_token_file, "a").close()
@@ -741,7 +742,8 @@ def update_sync_token(acc_id, old, new):
         return old
 
     # update token file
-    sync_token_file = pathlib.Path(based.CONFIG["dir"] +
+    config = based.get_config()
+    sync_token_file = pathlib.Path(config["dir"] +
                                    "/sync_token{}".format(acc_id))
 
     try:
@@ -758,7 +760,8 @@ def delete_sync_token(acc_id):
     Delete the sync token file for the account, called when account is removed
     """
 
-    sync_token_file = pathlib.Path(based.CONFIG["dir"] +
+    config = based.get_config()
+    sync_token_file = pathlib.Path(config["dir"] +
                                    "/sync_token{}".format(acc_id))
     if not sync_token_file.exists():
         return
