@@ -64,5 +64,29 @@ optional arguments:
 
 ## Changes
 
+* devel:
+  * Allow specification of the homeserver url in the account user when adding
+    an account. Thus, the following account users are possible:
+    * `<user>@<domain>` (defaults to https)
+    * `<user>@http://<domain>[:<port>]`
+    * `<user>@https://<domain>[:<port>]`
+  * Save sync token for each account in a file. So, only messages newer than
+    the last sync are retrieved after a restart of the backend.
+  * Add new commands:
+    * `bye`: disconnect from the backend.
+    * `quit`: quit the backend.
+    * `help`: show list of commands and their description.
+  * Add and use "chat msg" message format for group chat messages
+  * Store accounts in .ini file `accounts.ini` in the backend's working
+    directory. Note: existing accounts have to be re-added to the backend to
+    be usable with the .ini file.
+  * Add configuration file support: in addition to the command line arguments,
+    configuration parameters can now be set in the .ini file `config.ini` in
+    the backend's working directory.
+  * Add `loglevel` configuration parameter to command line arguments and
+    configuration file for setting the logging level to `debug`, `info`,
+    `warn`, or `error`. Default: `warn`.
+  * Make daemon python module optional
+  * Fixes and improvements
 * v0.1:
   * First/initial release.
