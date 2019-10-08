@@ -19,6 +19,7 @@ from types import SimpleNamespace
 
 from matrix_client.client import MatrixClient
 from matrix_client.errors import MatrixRequestError
+from matrix_client.errors import MatrixHttpLibError
 
 
 import based
@@ -53,7 +54,7 @@ class NuqqlClient():
 
         # data structures
         self.lock = lock
-        self.status = "online"
+        self.status = "offline"
         self.buddies = []
         self.history = []
         self.messages = []
@@ -92,10 +93,22 @@ class NuqqlClient():
             self.token = self.client.login(username=username,
                                            password=password, limit=0)
             self.client.sync_filter = sync_filter
+            self.status = "online"
 
-        except MatrixRequestError as error:
+        except (MatrixRequestError, MatrixHttpLibError) as error:
             self.account.logger.error(error)
             self.status = "offline"
+
+    def listener_exception(self, exception):
+        """
+        Handle listener exception
+        """
+
+        error = "Stopping listener because exception occured " \
+                "in listener: {}".format(exception)
+        self.account.logger.error(error)
+        self.client.should_listen = False
+        self.status = "offline"
 
     def _membership_event(self, event):
         """
@@ -109,6 +122,10 @@ class NuqqlClient():
         except MatrixRequestError as error:
             sender_name = sender
             self.account.logger.error(error)
+        except MatrixHttpLibError as error:
+            self.status = "offline"
+            self.account.logger.error(error)
+
         room_id = event["room_id"]
         room_name = room_id
         membership = event["content"]["membership"]
@@ -190,6 +207,10 @@ class NuqqlClient():
                             self.client.get_user(sender).get_display_name()
                 except MatrixRequestError as error:
                     sender_name = sender
+                    self.account.logger.error(error)
+                except MatrixHttpLibError as error:
+                    sender_name = sender
+                    self.status = "offline"
                     self.account.logger.error(error)
 
             # try to get timestamp
@@ -361,6 +382,9 @@ class NuqqlClient():
                 except MatrixRequestError as error:
                     # TODO: return error to connected user?
                     self.account.logger.error(error)
+                except MatrixHttpLibError as error:
+                    self.status = "offline"
+                    self.account.logger.error(error)
                 return
 
     def _set_status(self, status):
@@ -407,6 +431,9 @@ class NuqqlClient():
             self.messages.append(Format.ERROR.format(
                 "code: {} content: {}".format(error.code, error.content)))
             self.lock.release()
+        except MatrixHttpLibError as error:
+            self.status = "offline"
+            self.account.logger.error(error)
 
     def _chat_join(self, chat):
         """
@@ -426,6 +453,9 @@ class NuqqlClient():
             self.messages.append(Format.ERROR.format(
                 "code: {} content: {}".format(error.code, error.content)))
             self.lock.release()
+        except MatrixHttpLibError as error:
+            self.status = "offline"
+            self.account.logger.error(error)
 
     def _chat_part(self, chat):
         """
@@ -446,6 +476,9 @@ class NuqqlClient():
                                                       error.content)))
                     self.lock.release()
                     return
+                except MatrixHttpLibError as error:
+                    self.status = "offline"
+                    self.account.logger.error(error)
                 return
         # part a room we are invited to
         # TODO: add locking
@@ -462,6 +495,9 @@ class NuqqlClient():
                                                       error.content)))
                     self.lock.release()
                     return
+                except MatrixHttpLibError as error:
+                    self.status = "offline"
+                    self.account.logger.error(error)
                 # remove room from invites
                 self.room_invites = {k: v for k, v in self.room_invites.items()
                                      if k != room_id}
@@ -482,6 +518,10 @@ class NuqqlClient():
                 try:
                     roster = self.client.api.get_room_members(room_id)
                 except MatrixRequestError as error:
+                    self.account.logger.error(error)
+                    roster = {}
+                except MatrixHttpLibError as error:
+                    self.status = "offline"
                     self.account.logger.error(error)
                     roster = {}
 
@@ -526,6 +566,9 @@ class NuqqlClient():
                                                       error.content)))
                     self.lock.release()
                     return
+                except MatrixHttpLibError as error:
+                    self.status = "offline"
+                    self.account.logger.error(error)
 
     def update_buddies(self):
         """
@@ -577,6 +620,10 @@ class NuqqlClient():
         try:
             rooms = self.client.get_rooms()
         except MatrixRequestError as error:
+            self.account.logger.error(error)
+            rooms = []
+        except MatrixHttpLibError as error:
+            self.status = "offline"
             self.account.logger.error(error)
             rooms = []
         return rooms
@@ -823,19 +870,29 @@ def run_client(account, ready, running):
     # thread is ready to enter main loop, inform caller
     ready.set()
 
-    # start client connection
-    client.connect(url, user, domain, account.password)
-
-    # initialize sync token with last known value
-    sync_token = load_sync_token(account.aid)
-    client.client.sync_token = sync_token
-
-    # start the listener thread in the matrix client
-    client.client.start_listener_thread()
-
     # enter main loop, and keep running until "running" is set to false
     # by the KeyboardInterrupt
     while running.is_set():
+        # if client is offline, (re)connect
+        if client.status == "offline":
+            # if there is an old listener, stop it
+            if client.client:
+                client.client.stop_listener_thread()
+
+            # start client connection
+            client.connect(url, user, domain, account.password)
+
+            # initialize sync token with last known value
+            sync_token = load_sync_token(account.aid)
+            client.client.sync_token = sync_token
+
+            # start the listener thread in the matrix client
+            client.client.start_listener_thread(
+                exception_handler=client.listener_exception)
+
+            # skip other parts until the client is really online
+            continue
+
         # send pending outgoing messages, update the (safe copy of the)
         # buddy list, update the sync token, then sleep a little bit
         client.handle_queue()
