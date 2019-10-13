@@ -64,7 +64,7 @@ optional arguments:
 
 ## Changes
 
-* devel:
+* v0.2:
   * Allow specification of the homeserver url in the account user when adding
     an account. Thus, the following account users are possible:
     * `<user>@<domain>` (defaults to https)
