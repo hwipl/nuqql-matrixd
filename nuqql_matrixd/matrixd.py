@@ -22,8 +22,8 @@ from matrix_client.errors import MatrixRequestError
 from matrix_client.errors import MatrixHttpLibError
 
 
-import based
-from based import Format, Callback
+from nuqql_based import based
+from nuqql_based.based import Format, Callback
 
 # dictionary for all client connections
 CONNECTIONS = {}
