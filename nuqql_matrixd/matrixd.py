@@ -10,7 +10,6 @@ import html
 import re
 import urllib.parse
 import time
-import pathlib
 import os
 import stat
 
@@ -760,10 +759,9 @@ def load_sync_token(acc_id):
 
     # make sure path and file exist
     config = based.get_config()
-    pathlib.Path(config["dir"]).mkdir(parents=True, exist_ok=True)
+    config["dir"].mkdir(parents=True, exist_ok=True)
     os.chmod(config["dir"], stat.S_IRWXU)
-    sync_token_file = pathlib.Path(config["dir"] +
-                                   "/sync_token{}".format(acc_id))
+    sync_token_file = config["dir"] / f"sync_token{acc_id}"
     if not sync_token_file.exists():
         open(sync_token_file, "a").close()
 
@@ -790,8 +788,7 @@ def update_sync_token(acc_id, old, new):
 
     # update token file
     config = based.get_config()
-    sync_token_file = pathlib.Path(config["dir"] +
-                                   "/sync_token{}".format(acc_id))
+    sync_token_file = config["dir"] / f"/sync_token{acc_id}"
 
     try:
         with open(sync_token_file, "w") as token_file:
@@ -808,8 +805,7 @@ def delete_sync_token(acc_id):
     """
 
     config = based.get_config()
-    sync_token_file = pathlib.Path(config["dir"] +
-                                   "/sync_token{}".format(acc_id))
+    sync_token_file = config["dir"] / f"/sync_token{acc_id}"
     if not sync_token_file.exists():
         return
 
