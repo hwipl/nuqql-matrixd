@@ -965,7 +965,7 @@ def main():
     """
 
     # initialize configuration from command line and config file
-    config = based.init_config()
+    config = based.init_config("matrixd")
 
     # initialize main logger
     based.init_main_logger()
