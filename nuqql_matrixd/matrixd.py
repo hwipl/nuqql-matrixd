@@ -4,7 +4,6 @@
 matrixd
 """
 
-import sys
 import asyncio
 import html
 import re
@@ -16,13 +15,17 @@ import stat
 from threading import Thread, Lock, Event
 from types import SimpleNamespace
 
+# matrix imports
 from matrix_client.client import MatrixClient
 from matrix_client.errors import MatrixRequestError
 from matrix_client.errors import MatrixHttpLibError
 
-
+# nuqq-based imports
 from nuqql_based import based
-from nuqql_based.based import Format, Callback
+from nuqql_based import config
+from nuqql_based.buddy import Buddy
+from nuqql_based.message import Format, format_chat_msg
+from nuqql_based.callback import Callback
 
 # dictionary for all client connections
 CONNECTIONS = {}
@@ -256,7 +259,7 @@ class NuqqlClient():
 
         # save timestamp and message in messages list and history
         tstamp = int(int(msg["origin_server_ts"])/1000)
-        formatted_msg = based.format_chat_msg(
+        formatted_msg = format_chat_msg(
             self.account, tstamp, msg["sender"], msg["room_id"],
             msg["content"]["body"])
         self.lock.acquire()
@@ -591,7 +594,7 @@ class NuqqlClient():
             status = "GROUP_CHAT"
 
             # add buddies to buddy list
-            buddy = based.Buddy(name=room.room_id, alias=name, status=status)
+            buddy = Buddy(name=room.room_id, alias=name, status=status)
             buddies.append(buddy)
 
             # cleanup old invites
@@ -603,7 +606,7 @@ class NuqqlClient():
         for invite in self.room_invites.values():
             room_id, room_name, _sender, _sender_name, _tstamp = invite
             status = "GROUP_CHAT_INVITE"
-            buddy = based.Buddy(name=room_id, alias=room_name, status=status)
+            buddy = Buddy(name=room_id, alias=room_name, status=status)
             buddies.append(buddy)
 
         self.lock.acquire()
@@ -758,10 +761,10 @@ def load_sync_token(acc_id):
     """
 
     # make sure path and file exist
-    config = based.get_config()
-    config["dir"].mkdir(parents=True, exist_ok=True)
-    os.chmod(config["dir"], stat.S_IRWXU)
-    sync_token_file = config["dir"] / f"sync_token{acc_id}"
+    conf = config.get_config()
+    conf["dir"].mkdir(parents=True, exist_ok=True)
+    os.chmod(conf["dir"], stat.S_IRWXU)
+    sync_token_file = conf["dir"] / f"sync_token{acc_id}"
     if not sync_token_file.exists():
         open(sync_token_file, "a").close()
 
@@ -787,8 +790,8 @@ def update_sync_token(acc_id, old, new):
         return old
 
     # update token file
-    config = based.get_config()
-    sync_token_file = config["dir"] / f"/sync_token{acc_id}"
+    conf = config.get_config()
+    sync_token_file = conf["dir"] / f"/sync_token{acc_id}"
 
     try:
         with open(sync_token_file, "w") as token_file:
@@ -804,8 +807,8 @@ def delete_sync_token(acc_id):
     Delete the sync token file for the account, called when account is removed
     """
 
-    config = based.get_config()
-    sync_token_file = config["dir"] / f"/sync_token{acc_id}"
+    conf = config.get_config()
+    sync_token_file = conf["dir"] / f"/sync_token{acc_id}"
     if not sync_token_file.exists():
         return
 
@@ -906,6 +909,11 @@ def add_account(account_id, _cmd, params):
     Add a new account (from based) and run a new client thread for it
     """
 
+    # only handle matrix accounts
+    account = params[0]
+    if account.type != "matrix":
+        return
+
     # event to signal thread is ready
     ready = Event()
 
@@ -914,7 +922,6 @@ def add_account(account_id, _cmd, params):
     running.set()
 
     # create and start thread
-    account = params[0]
     new_thread = Thread(target=run_client, args=(account, ready, running))
     new_thread.start()
 
@@ -959,59 +966,57 @@ def stop_thread(account_id, _cmd, _params):
     running.clear()
 
 
+def based_interrupt(_account_id, _cmd, _params):
+    """
+    KeyboardInterrupt event in based
+    """
+
+    for _thread, running in THREADS.values():
+        print("Signalling account thread to stop.")
+        running.clear()
+
+
+def based_quit(_account_id, _cmd, _params):
+    """
+    Based shut down event
+    """
+
+    print("Waiting for all threads to finish. This might take a while.")
+    for thread, _running in THREADS.values():
+        thread.join()
+
+
 def main():
     """
     Main function, initialize everything and start server
     """
 
-    # initialize configuration from command line and config file
-    config = based.init_config("matrixd")
+    # set callbacks
+    callbacks = [
+        # based events
+        (Callback.BASED_INTERRUPT, based_interrupt),
+        (Callback.BASED_QUIT, based_quit),
 
-    # initialize main logger
-    based.init_main_logger()
+        # nuqql messages
+        (Callback.QUIT, stop_thread),
+        (Callback.ADD_ACCOUNT, add_account),
+        (Callback.DEL_ACCOUNT, del_account),
+        (Callback.UPDATE_BUDDIES, update_buddies),
+        (Callback.GET_MESSAGES, get_messages),
+        (Callback.SEND_MESSAGE, send_message),
+        (Callback.COLLECT_MESSAGES, collect_messages),
+        (Callback.SET_STATUS, enqueue),
+        (Callback.GET_STATUS, enqueue),
+        (Callback.CHAT_LIST, enqueue),
+        (Callback.CHAT_JOIN, enqueue),
+        (Callback.CHAT_PART, enqueue),
+        (Callback.CHAT_SEND, chat_send),
+        (Callback.CHAT_USERS, enqueue),
+        (Callback.CHAT_INVITE, enqueue),
+    ]
 
-    # load accounts
-    based.load_accounts()
-
-    # initialize account loggers
-    based.init_account_loggers()
-
-    # start a client connection for every matrix account in it's own thread
-    for acc in based.get_accounts().values():
-        if acc.type == "matrix":
-            add_account(acc.aid, Callback.ADD_ACCOUNT, (acc, ))
-
-    # register callbacks
-    based.register_callback(Callback.QUIT, stop_thread)
-    based.register_callback(Callback.ADD_ACCOUNT, add_account)
-    based.register_callback(Callback.DEL_ACCOUNT, del_account)
-    based.register_callback(Callback.UPDATE_BUDDIES, update_buddies)
-    based.register_callback(Callback.GET_MESSAGES, get_messages)
-    based.register_callback(Callback.SEND_MESSAGE, send_message)
-    based.register_callback(Callback.COLLECT_MESSAGES, collect_messages)
-    based.register_callback(Callback.SET_STATUS, enqueue)
-    based.register_callback(Callback.GET_STATUS, enqueue)
-    based.register_callback(Callback.CHAT_LIST, enqueue)
-    based.register_callback(Callback.CHAT_JOIN, enqueue)
-    based.register_callback(Callback.CHAT_PART, enqueue)
-    based.register_callback(Callback.CHAT_SEND, chat_send)
-    based.register_callback(Callback.CHAT_USERS, enqueue)
-    based.register_callback(Callback.CHAT_INVITE, enqueue)
-
-    # run the server for the nuqql connection
-    try:
-        based.run_server(config)
-    except KeyboardInterrupt:
-        # try to terminate all threads
-        for _thread, running in THREADS.values():
-            print("Signalling account thread to stop.")
-            running.clear()
-    finally:
-        # wait for threads to finish
-        print("Waiting for all threads to finish. This might take a while.")
-        for thread, _running in THREADS.values():
-            thread.join()
-        sys.exit()
+    # start based
+    based.start("matrixd", callbacks)
 
 
 if __name__ == '__main__':
