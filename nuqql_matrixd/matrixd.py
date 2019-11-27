@@ -24,7 +24,7 @@ from matrix_client.errors import MatrixHttpLibError
 from nuqql_based import based
 from nuqql_based import config
 from nuqql_based.buddy import Buddy
-from nuqql_based.message import Format, format_chat_msg
+from nuqql_based.message import Message
 from nuqql_based.callback import Callback
 
 # dictionary for all client connections
@@ -140,28 +140,26 @@ class NuqqlClient():
         # check membership type
         if membership == "invite":
             invited_user = event["content"]["displayname"]
-            user_msg = Format.CHAT_USER.format(self.account.aid, room_id,
-                                               invited_user, invited_user,
-                                               membership)
+            user_msg = Message.chat_user(self.account, room_id, invited_user,
+                                         invited_user, membership)
             msg = "*** {} invited {} to {}. ***".format(sender_name,
                                                         invited_user,
                                                         room_name)
         if membership == "join":
             invited_user = event["content"]["displayname"]
-            user_msg = Format.CHAT_USER.format(self.account.aid, room_id,
-                                               sender, invited_user,
-                                               membership)
+            user_msg = Message.chat_user(self.account, room_id, sender,
+                                         invited_user, membership)
             msg = "*** {} joined {}. ***".format(invited_user, room_name)
 
         if membership == "leave":
-            user_msg = Format.CHAT_USER.format(self.account.aid, room_id,
-                                               sender, sender_name, membership)
+            user_msg = Message.chat_user(self.account, room_id, sender,
+                                         sender_name, membership)
             msg = "*** {} left {}. ***".format(sender_name, room_name)
 
         # generic event, return as message
         # TODO: change parsing in nuqql and use char + / + sender here?
-        formatted_msg = Format.CHAT_MSG.format(self.account.aid, room_id,
-                                               tstamp, sender, msg)
+        formatted_msg = Message.CHAT_MSG.format(self.account.aid, room_id,
+                                                tstamp, sender, msg)
 
         # add event to event list
         self.lock.acquire()
@@ -259,7 +257,7 @@ class NuqqlClient():
 
         # save timestamp and message in messages list and history
         tstamp = int(int(msg["origin_server_ts"])/1000)
-        formatted_msg = format_chat_msg(
+        formatted_msg = Message.chat_msg(
             self.account, tstamp, msg["sender"], msg["room_id"],
             msg["content"]["body"])
         self.lock.acquire()
@@ -403,8 +401,7 @@ class NuqqlClient():
         """
 
         self.lock.acquire()
-        self.messages.append(Format.STATUS.format(self.account.aid,
-                                                  self.status))
+        self.messages.append(Message.status(self.account, self.status))
         self.lock.release()
 
     def _chat_list(self):
@@ -415,8 +412,8 @@ class NuqqlClient():
         rooms = self._get_rooms()
         for room in rooms.values():
             self.lock.acquire()
-            self.messages.append(Format.CHAT_LIST.format(
-                self.account.aid, room.room_id, escape_name(room.display_name),
+            self.messages.append(Message.chat_list(
+                self.account, room.room_id, escape_name(room.display_name),
                 self.user))
             self.lock.release()
 
@@ -430,7 +427,7 @@ class NuqqlClient():
             room.set_room_name(name)
         except MatrixRequestError as error:
             self.lock.acquire()
-            self.messages.append(Format.ERROR.format(
+            self.messages.append(Message.error(
                 "code: {} content: {}".format(error.code, error.content)))
             self.lock.release()
         except MatrixHttpLibError as error:
@@ -452,7 +449,7 @@ class NuqqlClient():
                 self._chat_create(chat)
                 return
             self.lock.acquire()
-            self.messages.append(Format.ERROR.format(
+            self.messages.append(Message.error(
                 "code: {} content: {}".format(error.code, error.content)))
             self.lock.release()
         except MatrixHttpLibError as error:
@@ -473,7 +470,7 @@ class NuqqlClient():
                     room.leave()
                 except MatrixRequestError as error:
                     self.lock.acquire()
-                    self.messages.append(Format.ERROR.format(
+                    self.messages.append(Message.error(
                         "code: {} content: {}".format(error.code,
                                                       error.content)))
                     self.lock.release()
@@ -492,7 +489,7 @@ class NuqqlClient():
                     self.client.api.leave_room(room_id)
                 except MatrixRequestError as error:
                     self.lock.acquire()
-                    self.messages.append(Format.ERROR.format(
+                    self.messages.append(Message.error(
                         "code: {} content: {}".format(error.code,
                                                       error.content)))
                     self.lock.release()
@@ -546,8 +543,8 @@ class NuqqlClient():
                         # use fake user id.
                         user_id = "@{}:<invited>".format(name)
                     self.lock.acquire()
-                    self.messages.append(Format.CHAT_USER.format(
-                        self.account.aid, chat, user_id, name, status))
+                    self.messages.append(Message.chat_user(
+                        self.account, chat, user_id, name, status))
                     self.lock.release()
 
     def _chat_invite(self, chat, user_id):
@@ -563,7 +560,7 @@ class NuqqlClient():
                     room.invite_user(user_id)
                 except MatrixRequestError as error:
                     self.lock.acquire()
-                    self.messages.append(Format.ERROR.format(
+                    self.messages.append(Message.error(
                         "code: {} content: {}".format(error.code,
                                                       error.content)))
                     self.lock.release()
