@@ -374,7 +374,7 @@ class NuqqlClient():
             return
 
         # create message from message tuple and send it
-        dest, msg, html_msg, mtype = message_tuple
+        dest, msg, html_msg, _mtype = message_tuple
 
         rooms = self._get_rooms()
         for room in rooms.values():
