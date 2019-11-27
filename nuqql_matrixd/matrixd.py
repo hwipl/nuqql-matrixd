@@ -912,7 +912,7 @@ def add_account(account_id, _cmd, params):
     # only handle matrix accounts
     account = params[0]
     if account.type != "matrix":
-        return
+        return ""
 
     # event to signal thread is ready
     ready = Event()
