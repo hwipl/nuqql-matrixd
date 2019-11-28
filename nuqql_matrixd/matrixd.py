@@ -23,7 +23,6 @@ from matrix_client.errors import MatrixHttpLibError
 # nuqq-based imports
 from nuqql_based import based
 from nuqql_based import config
-from nuqql_based.buddy import Buddy
 from nuqql_based.message import Message
 from nuqql_based.callback import Callback
 
@@ -591,7 +590,7 @@ class NuqqlClient():
             status = "GROUP_CHAT"
 
             # add buddies to buddy list
-            buddy = Buddy(name=room.room_id, alias=name, status=status)
+            buddy = (room.room_id, name, status)
             buddies.append(buddy)
 
             # cleanup old invites
@@ -603,7 +602,7 @@ class NuqqlClient():
         for invite in self.room_invites.values():
             room_id, room_name, _sender, _sender_name, _tstamp = invite
             status = "GROUP_CHAT_INVITE"
-            buddy = Buddy(name=room_id, alias=room_name, status=status)
+            buddy = (room_id, room_name, status)
             buddies.append(buddy)
 
         self.lock.acquire()
@@ -641,12 +640,12 @@ def update_buddies(account_id, _cmd, _params):
 
     # TODO: rework this?
     # clear buddy list
-    client.account.buddies = []
+    client.account.flush_buddies()
 
     # parse buddy list and insert buddies into buddy list
     client.lock.acquire()
     for buddy in client.buddies:
-        client.account.buddies.append(buddy)
+        client.account.add_buddy(*buddy)
     client.lock.release()
 
     return ""
