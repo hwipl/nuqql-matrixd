@@ -575,9 +575,7 @@ class NuqqlClient():
 
         # if we are offline, there are no buddies
         if self.status == "offline":
-            self.lock.acquire()
-            self.buddies = []
-            self.lock.release()
+            self.account.flush_buddies()
             return
 
         # get buddies/rooms
@@ -605,10 +603,8 @@ class NuqqlClient():
             buddy = (room_id, room_name, status)
             buddies.append(buddy)
 
-        self.lock.acquire()
-        # flush buddy list
-        self.buddies = buddies
-        self.lock.release()
+        # update account's buddy list with buddies
+        self.account.update_buddies(buddies)
 
     def _get_rooms(self):
         """
@@ -625,30 +621,6 @@ class NuqqlClient():
             self.account.logger.error(error)
             rooms = []
         return rooms
-
-
-def update_buddies(account_id, _cmd, _params):
-    """
-    Read buddies from client connection
-    """
-
-    try:
-        client = CONNECTIONS[account_id]
-    except KeyError:
-        # no active connection
-        return ""
-
-    # TODO: rework this?
-    # clear buddy list
-    client.account.flush_buddies()
-
-    # parse buddy list and insert buddies into buddy list
-    client.lock.acquire()
-    for buddy in client.buddies:
-        client.account.add_buddy(*buddy)
-    client.lock.release()
-
-    return ""
 
 
 def get_messages(account_id, _cmd, _params):
@@ -997,7 +969,6 @@ def main():
         (Callback.QUIT, stop_thread),
         (Callback.ADD_ACCOUNT, add_account),
         (Callback.DEL_ACCOUNT, del_account),
-        (Callback.UPDATE_BUDDIES, update_buddies),
         (Callback.GET_MESSAGES, get_messages),
         (Callback.SEND_MESSAGE, send_message),
         (Callback.COLLECT_MESSAGES, collect_messages),
