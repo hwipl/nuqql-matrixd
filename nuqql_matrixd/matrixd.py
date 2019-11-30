@@ -57,7 +57,6 @@ class NuqqlClient():
         self.lock = lock
         self.status = "offline"
         self.history = []
-        self.messages = []
         self.queue = []
 
         # separate data structure for managing room invites
@@ -160,12 +159,10 @@ class NuqqlClient():
                                                 tstamp, sender, msg)
 
         # add event to event list
-        self.lock.acquire()
         if self.config.membership_user_msg:
-            self.messages.append(user_msg)
+            self.account.receive_msg(user_msg)
         if self.config.membership_message_msg:
-            self.messages.append(formatted_msg)
-        self.lock.release()
+            self.account.receive_msg(formatted_msg)
 
     def listener(self, event):
         """
@@ -258,8 +255,8 @@ class NuqqlClient():
         formatted_msg = Message.chat_msg(
             self.account, tstamp, msg["sender"], msg["room_id"],
             msg["content"]["body"])
+        self.account.receive_msg(formatted_msg)
         self.lock.acquire()
-        self.messages.append(formatted_msg)
         self.history.append(formatted_msg)
         self.lock.release()
 
@@ -303,20 +300,6 @@ class NuqqlClient():
 
         # return the copy of the history
         return history
-
-    def get_messages(self):
-        """
-        Read incoming messages
-        """
-
-        self.lock.acquire()
-        # create a copy of the message list, and flush the message list
-        messages = self.messages[:]
-        self.messages = []
-        self.lock.release()
-
-        # return the copy of the message list
-        return messages
 
     def enqueue_command(self, cmd, params):
         """
@@ -398,9 +381,7 @@ class NuqqlClient():
         Get the current status of the account
         """
 
-        self.lock.acquire()
-        self.messages.append(Message.status(self.account, self.status))
-        self.lock.release()
+        self.account.receive_msg(Message.status(self.account, self.status))
 
     def _chat_list(self):
         """
@@ -409,11 +390,9 @@ class NuqqlClient():
 
         rooms = self._get_rooms()
         for room in rooms.values():
-            self.lock.acquire()
-            self.messages.append(Message.chat_list(
+            self.account.receive_msg(Message.chat_list(
                 self.account, room.room_id, escape_name(room.display_name),
                 self.user))
-            self.lock.release()
 
     def _chat_create(self, name):
         """
@@ -424,10 +403,8 @@ class NuqqlClient():
             room = self.client.create_room()
             room.set_room_name(name)
         except MatrixRequestError as error:
-            self.lock.acquire()
-            self.messages.append(Message.error(
+            self.account.receive_msg(Message.error(
                 "code: {} content: {}".format(error.code, error.content)))
-            self.lock.release()
         except MatrixHttpLibError as error:
             self.status = "offline"
             self.account.logger.error(error)
@@ -446,10 +423,8 @@ class NuqqlClient():
             if not chat.startswith("!") or ":" not in chat:
                 self._chat_create(chat)
                 return
-            self.lock.acquire()
-            self.messages.append(Message.error(
+            self.account.receive_msg(Message.error(
                 "code: {} content: {}".format(error.code, error.content)))
-            self.lock.release()
         except MatrixHttpLibError as error:
             self.status = "offline"
             self.account.logger.error(error)
@@ -467,11 +442,9 @@ class NuqqlClient():
                 try:
                     room.leave()
                 except MatrixRequestError as error:
-                    self.lock.acquire()
-                    self.messages.append(Message.error(
+                    self.account.receive_msg(Message.error(
                         "code: {} content: {}".format(error.code,
                                                       error.content)))
-                    self.lock.release()
                     return
                 except MatrixHttpLibError as error:
                     self.status = "offline"
@@ -486,11 +459,9 @@ class NuqqlClient():
                 try:
                     self.client.api.leave_room(room_id)
                 except MatrixRequestError as error:
-                    self.lock.acquire()
-                    self.messages.append(Message.error(
+                    self.account.receive_msg(Message.error(
                         "code: {} content: {}".format(error.code,
                                                       error.content)))
-                    self.lock.release()
                     return
                 except MatrixHttpLibError as error:
                     self.status = "offline"
@@ -540,10 +511,8 @@ class NuqqlClient():
                         # user['user_id'] is the sender of the invite,
                         # use fake user id.
                         user_id = "@{}:<invited>".format(name)
-                    self.lock.acquire()
-                    self.messages.append(Message.chat_user(
+                    self.account.receive_msg(Message.chat_user(
                         self.account, chat, user_id, name, status))
-                    self.lock.release()
 
     def _chat_invite(self, chat, user_id):
         """
@@ -557,11 +526,9 @@ class NuqqlClient():
                 try:
                     room.invite_user(user_id)
                 except MatrixRequestError as error:
-                    self.lock.acquire()
-                    self.messages.append(Message.error(
+                    self.account.receive_msg(Message.error(
                         "code: {} content: {}".format(error.code,
                                                       error.content)))
-                    self.lock.release()
                     return
                 except MatrixHttpLibError as error:
                     self.status = "offline"
@@ -620,21 +587,6 @@ class NuqqlClient():
             self.account.logger.error(error)
             rooms = []
         return rooms
-
-
-def get_messages(account_id, _cmd, _params):
-    """
-    Read messages from client connection
-    """
-
-    try:
-        client = CONNECTIONS[account_id]
-    except KeyError:
-        # no active connection
-        return ""
-
-    # get and return messages
-    return "".join(client.get_messages())
 
 
 def collect_messages(account_id, _cmd, _params):
@@ -968,7 +920,6 @@ def main():
         (Callback.QUIT, stop_thread),
         (Callback.ADD_ACCOUNT, add_account),
         (Callback.DEL_ACCOUNT, del_account),
-        (Callback.GET_MESSAGES, get_messages),
         (Callback.SEND_MESSAGE, send_message),
         (Callback.COLLECT_MESSAGES, collect_messages),
         (Callback.SET_STATUS, enqueue),
