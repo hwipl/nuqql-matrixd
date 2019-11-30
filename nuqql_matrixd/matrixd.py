@@ -56,7 +56,6 @@ class NuqqlClient():
         # data structures
         self.lock = lock
         self.status = "offline"
-        self.history = []
         self.queue = []
 
         # separate data structure for managing room invites
@@ -256,9 +255,6 @@ class NuqqlClient():
             self.account, tstamp, msg["sender"], msg["room_id"],
             msg["content"]["body"])
         self.account.receive_msg(formatted_msg)
-        self.lock.acquire()
-        self.history.append(formatted_msg)
-        self.lock.release()
 
     def muc_message(self, msg):
         """
@@ -287,19 +283,6 @@ class NuqqlClient():
         """
 
         self._muc_presence(presence, "offline")
-
-    def collect(self):
-        """
-        Collect all messages from message log
-        """
-
-        self.lock.acquire()
-        # create a copy of the history
-        history = self.history[:]
-        self.lock.release()
-
-        # return the copy of the history
-        return history
 
     def enqueue_command(self, cmd, params):
         """
@@ -587,21 +570,6 @@ class NuqqlClient():
             self.account.logger.error(error)
             rooms = []
         return rooms
-
-
-def collect_messages(account_id, _cmd, _params):
-    """
-    Collect all messages from client connection
-    """
-
-    try:
-        client = CONNECTIONS[account_id]
-    except KeyError:
-        # no active connection
-        return ""
-
-    # collect and return messages
-    return "".join(client.collect())
 
 
 def enqueue(account_id, cmd, params):
@@ -921,7 +889,6 @@ def main():
         (Callback.ADD_ACCOUNT, add_account),
         (Callback.DEL_ACCOUNT, del_account),
         (Callback.SEND_MESSAGE, send_message),
-        (Callback.COLLECT_MESSAGES, collect_messages),
         (Callback.SET_STATUS, enqueue),
         (Callback.GET_STATUS, enqueue),
         (Callback.CHAT_LIST, enqueue),
