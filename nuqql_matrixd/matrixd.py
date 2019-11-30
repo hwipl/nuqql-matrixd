@@ -56,7 +56,6 @@ class NuqqlClient():
         # data structures
         self.lock = lock
         self.status = "offline"
-        self.buddies = []
         self.history = []
         self.messages = []
         self.queue = []
