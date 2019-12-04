@@ -21,14 +21,16 @@ from matrix_client.errors import MatrixRequestError
 from matrix_client.errors import MatrixHttpLibError
 
 # nuqq-based imports
-from nuqql_based import based
-from nuqql_based import config
+from nuqql_based.based import Based
 from nuqql_based.message import Message
 from nuqql_based.callback import Callback
 
 # dictionary for all client connections
 CONNECTIONS = {}
 THREADS = {}
+
+# Based configuration
+CONFIG = {}
 
 
 class NuqqlClient():
@@ -648,10 +650,9 @@ def load_sync_token(acc_id):
     """
 
     # make sure path and file exist
-    conf = config.get_config()
-    conf["dir"].mkdir(parents=True, exist_ok=True)
-    os.chmod(conf["dir"], stat.S_IRWXU)
-    sync_token_file = conf["dir"] / f"sync_token{acc_id}"
+    CONFIG["dir"].mkdir(parents=True, exist_ok=True)
+    os.chmod(CONFIG["dir"], stat.S_IRWXU)
+    sync_token_file = CONFIG["dir"] / f"sync_token{acc_id}"
     if not sync_token_file.exists():
         open(sync_token_file, "a").close()
 
@@ -677,8 +678,7 @@ def update_sync_token(acc_id, old, new):
         return old
 
     # update token file
-    conf = config.get_config()
-    sync_token_file = conf["dir"] / f"/sync_token{acc_id}"
+    sync_token_file = CONFIG["dir"] / f"/sync_token{acc_id}"
 
     try:
         with open(sync_token_file, "w") as token_file:
@@ -694,8 +694,7 @@ def delete_sync_token(acc_id):
     Delete the sync token file for the account, called when account is removed
     """
 
-    conf = config.get_config()
-    sync_token_file = conf["dir"] / f"/sync_token{acc_id}"
+    sync_token_file = CONFIG["dir"] / f"/sync_token{acc_id}"
     if not sync_token_file.exists():
         return
 
@@ -900,7 +899,10 @@ def main():
     ]
 
     # start based
-    based.start("matrixd", callbacks)
+    based = Based("matrixd", callbacks)
+    for key, value in based.config.get().items():
+        CONFIG[key] = value
+    based.start()
 
 
 if __name__ == '__main__':
