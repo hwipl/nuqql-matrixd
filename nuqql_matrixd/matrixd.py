@@ -12,6 +12,7 @@ import time
 import os
 import stat
 
+from typing import TYPE_CHECKING, Dict, Tuple
 from threading import Thread, Lock, Event
 from types import SimpleNamespace
 
@@ -24,6 +25,9 @@ from matrix_client.errors import MatrixHttpLibError     # type: ignore
 from nuqql_based.based import Based
 from nuqql_based.message import Message
 from nuqql_based.callback import Callback
+
+if TYPE_CHECKING:   # imports for typing
+    from nuqql_based.account import Account
 
 
 class BackendClient():
@@ -573,9 +577,9 @@ class BackendServer:
     IM networks
     """
 
-    def __init__(self):
-        self.connections = {}
-        self.threads = {}
+    def __init__(self) -> None:
+        self.connections: Dict[int, BackendClient] = {}
+        self.threads: Dict[int, Tuple[Thread, Event]] = {}
 
         # set callbacks
         callbacks = [
@@ -601,14 +605,14 @@ class BackendServer:
         # start based
         self.based = Based("matrixd", callbacks)
 
-    def start(self):
+    def start(self) -> None:
         """
         Start server
         """
 
         self.based.start()
 
-    def enqueue(self, account_id, cmd, params):
+    def enqueue(self, account_id: int, cmd: Callback, params: Tuple) -> str:
         """
         add commands to the command queue of the account/client
         """
@@ -623,7 +627,8 @@ class BackendServer:
 
         return ""
 
-    def send_message(self, account_id, cmd, params):
+    def send_message(self, account_id: int, cmd: Callback,
+                     params: Tuple) -> str:
         """
         send a message to a destination  on an account
         """
@@ -649,7 +654,7 @@ class BackendServer:
 
         return ""
 
-    def chat_send(self, account_id, _cmd, params):
+    def chat_send(self, account_id: int, _cmd: Callback, params: Tuple) -> str:
         """
         Send message to chat on account
         """
@@ -660,7 +665,7 @@ class BackendServer:
         return self.send_message(account_id, Callback.SEND_MESSAGE,
                                  (chat, msg, "groupchat"))
 
-    def load_sync_token(self, acc_id):
+    def load_sync_token(self, acc_id: int) -> str:
         """
         Load an old sync token from file if available
         """
@@ -683,7 +688,7 @@ class BackendServer:
 
         return token
 
-    def update_sync_token(self, acc_id, old, new):
+    def update_sync_token(self, acc_id: int, old: str, new: str) -> str:
         """
         Update an existing sync token with a newer one
         """
@@ -703,7 +708,7 @@ class BackendServer:
 
         return new
 
-    def delete_sync_token(self, acc_id):
+    def delete_sync_token(self, acc_id: int) -> None:
         """
         Delete the sync token file for the account, called when account is
         removed
@@ -715,7 +720,8 @@ class BackendServer:
 
         os.remove(sync_token_file)
 
-    def run_client(self, account, ready, running):
+    def run_client(self, account: "Account", ready: Event,
+                   running: Event) -> None:
         """
         Run client connection in a new thread,
         as long as running Event is set to true.
@@ -775,7 +781,8 @@ class BackendServer:
         # stop the listener thread in the matrix client
         client.client.stop_listener_thread()
 
-    def add_account(self, account_id, _cmd, params):
+    def add_account(self, account_id: int, _cmd: Callback,
+                    params: Tuple) -> str:
         """
         Add a new account (from based) and run a new client thread for it
         """
@@ -805,7 +812,8 @@ class BackendServer:
 
         return ""
 
-    def del_account(self, account_id, _cmd, _params):
+    def del_account(self, account_id: int, _cmd: Callback,
+                    _params: Tuple) -> str:
         """
         Delete an existing account (in based) and
         stop matrix client thread for it
@@ -825,7 +833,8 @@ class BackendServer:
 
         return ""
 
-    def stop_thread(self, account_id, _cmd, _params):
+    def stop_thread(self, account_id: int, _cmd: Callback,
+                    _params: Tuple) -> str:
         """
         Quit backend/stop client thread
         """
@@ -834,8 +843,10 @@ class BackendServer:
         print("Signalling account thread to stop.")
         _thread, running = self.threads[account_id]
         running.clear()
+        return ""
 
-    def based_interrupt(self, _account_id, _cmd, _params):
+    def based_interrupt(self, _account_id: int, _cmd: Callback,
+                        _params: Tuple) -> str:
         """
         KeyboardInterrupt event in based
         """
@@ -843,8 +854,10 @@ class BackendServer:
         for _thread, running in self.threads.values():
             print("Signalling account thread to stop.")
             running.clear()
+        return ""
 
-    def based_quit(self, _account_id, _cmd, _params):
+    def based_quit(self, _account_id: int, _cmd: Callback,
+                   _params: Tuple) -> str:
         """
         Based shut down event
         """
@@ -852,9 +865,10 @@ class BackendServer:
         print("Waiting for all threads to finish. This might take a while.")
         for thread, _running in self.threads.values():
             thread.join()
+        return ""
 
 
-def escape_name(name):
+def escape_name(name: str) -> str:
     """
     Escape "invalid" charecters in name, e.g., space.
     """
@@ -863,7 +877,7 @@ def escape_name(name):
     return urllib.parse.quote(name)
 
 
-def unescape_name(name):
+def unescape_name(name: str) -> str:
     """
     Convert name back to unescaped version.
     """
@@ -872,7 +886,7 @@ def unescape_name(name):
     return urllib.parse.unquote(name)
 
 
-def parse_account_user(acc_user):
+def parse_account_user(acc_user: str) -> Tuple[str, str, str]:
     """
     Parse the user configured in the account to extract the matrix user, domain
     and base url
@@ -900,7 +914,7 @@ def parse_account_user(acc_user):
     return url, user, domain
 
 
-def main():
+def main() -> None:
     """
     Main function, initialize everything and start server
     """
