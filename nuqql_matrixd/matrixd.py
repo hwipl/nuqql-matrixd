@@ -16,9 +16,9 @@ from threading import Thread, Lock, Event
 from types import SimpleNamespace
 
 # matrix imports
-from matrix_client.client import MatrixClient
-from matrix_client.errors import MatrixRequestError
-from matrix_client.errors import MatrixHttpLibError
+from matrix_client.client import MatrixClient           # type: ignore
+from matrix_client.errors import MatrixRequestError     # type: ignore
+from matrix_client.errors import MatrixHttpLibError     # type: ignore
 
 # nuqq-based imports
 from nuqql_based.based import Based
