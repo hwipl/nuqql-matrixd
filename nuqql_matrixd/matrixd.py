@@ -25,17 +25,10 @@ from nuqql_based.based import Based
 from nuqql_based.message import Message
 from nuqql_based.callback import Callback
 
-# dictionary for all client connections
-CONNECTIONS = {}
-THREADS = {}
 
-# Based configuration
-CONFIG = {}
-
-
-class NuqqlClient():
+class BackendClient():
     """
-    Nuqql Client Class
+    Backend Client Class for connections to the IM network
     """
 
     def __init__(self, account, lock):
@@ -574,56 +567,291 @@ class NuqqlClient():
         return rooms
 
 
-def enqueue(account_id, cmd, params):
+class BackendServer:
     """
-    Helper for adding commands to the command queue of the account/client
+    Backend server class, manages the BackendClients for connections to
+    IM networks
     """
 
-    try:
-        client = CONNECTIONS[account_id]
-    except KeyError:
-        # no active connection
+    def __init__(self):
+        self.connections = {}
+        self.threads = {}
+
+        # set callbacks
+        callbacks = [
+            # based events
+            (Callback.BASED_INTERRUPT, self.based_interrupt),
+            (Callback.BASED_QUIT, self.based_quit),
+
+            # nuqql messages
+            (Callback.QUIT, self.stop_thread),
+            (Callback.ADD_ACCOUNT, self.add_account),
+            (Callback.DEL_ACCOUNT, self.del_account),
+            (Callback.SEND_MESSAGE, self.send_message),
+            (Callback.SET_STATUS, self.enqueue),
+            (Callback.GET_STATUS, self.enqueue),
+            (Callback.CHAT_LIST, self.enqueue),
+            (Callback.CHAT_JOIN, self.enqueue),
+            (Callback.CHAT_PART, self.enqueue),
+            (Callback.CHAT_SEND, self.chat_send),
+            (Callback.CHAT_USERS, self.enqueue),
+            (Callback.CHAT_INVITE, self.enqueue),
+        ]
+
+        # start based
+        self.based = Based("matrixd", callbacks)
+
+    def start(self):
+        """
+        Start server
+        """
+
+        self.based.start()
+
+    def enqueue(self, account_id, cmd, params):
+        """
+        add commands to the command queue of the account/client
+        """
+
+        try:
+            client = self.connections[account_id]
+        except KeyError:
+            # no active connection
+            return ""
+
+        client.enqueue_command(cmd, params)
+
         return ""
 
-    client.enqueue_command(cmd, params)
+    def send_message(self, account_id, cmd, params):
+        """
+        send a message to a destination  on an account
+        """
 
-    return ""
+        # parse parameters
+        if len(params) > 2:
+            dest, msg, msg_type = params
+        else:
+            dest, msg = params
+            msg_type = "chat"
 
+        # nuqql sends a html-escaped message; construct "plain-text" version
+        # and xhtml version using nuqql's message and use them as message body
+        # later
+        html_msg = \
+            '<body xmlns="http://www.w3.org/1999/xhtml">{}</body>'.format(msg)
+        msg = html.unescape(msg)
+        msg = "\n".join(re.split("<br/>", msg, flags=re.IGNORECASE))
 
-def send_message(account_id, cmd, params):
-    """
-    send a message to a destination  on an account
-    """
+        # send message
+        self.enqueue(account_id, cmd, (unescape_name(dest), msg, html_msg,
+                                       msg_type))
 
-    # parse parameters
-    if len(params) > 2:
-        dest, msg, msg_type = params
-    else:
-        dest, msg = params
-        msg_type = "chat"
+        return ""
 
-    # nuqql sends a html-escaped message; construct "plain-text" version and
-    # xhtml version using nuqql's message and use them as message body later
-    html_msg = \
-        '<body xmlns="http://www.w3.org/1999/xhtml">{}</body>'.format(msg)
-    msg = html.unescape(msg)
-    msg = "\n".join(re.split("<br/>", msg, flags=re.IGNORECASE))
+    def chat_send(self, account_id, _cmd, params):
+        """
+        Send message to chat on account
+        """
 
-    # send message
-    enqueue(account_id, cmd, (unescape_name(dest), msg, html_msg, msg_type))
+        chat, msg = params
+        # TODO: use cmd to infer msg type in send_message and remove this
+        # function?
+        return self.send_message(account_id, Callback.SEND_MESSAGE,
+                                 (chat, msg, "groupchat"))
 
-    return ""
+    def load_sync_token(self, acc_id):
+        """
+        Load an old sync token from file if available
+        """
 
+        # make sure path and file exist
+        self.based.config.get_dir().mkdir(parents=True, exist_ok=True)
+        os.chmod(self.based.config.get_dir(), stat.S_IRWXU)
+        sync_token_file = self.based.config.get_dir() / f"sync_token{acc_id}"
+        if not sync_token_file.exists():
+            open(sync_token_file, "a").close()
 
-def chat_send(account_id, _cmd, params):
-    """
-    Send message to chat on account
-    """
+        # make sure only user can read/write file before using it
+        os.chmod(sync_token_file, stat.S_IRUSR | stat.S_IWUSR)
 
-    chat, msg = params
-    # TODO: use cmd to infer msg type in send_message and remove this function?
-    return send_message(account_id, Callback.SEND_MESSAGE,
-                        (chat, msg, "groupchat"))
+        try:
+            with open(sync_token_file, "r") as token_file:
+                token = token_file.readline()
+        except OSError:
+            token = ""
+
+        return token
+
+    def update_sync_token(self, acc_id, old, new):
+        """
+        Update an existing sync token with a newer one
+        """
+
+        if old == new:
+            # tokens are not different
+            return old
+
+        # update token file
+        sync_token_file = self.based.config.get_dir() / f"/sync_token{acc_id}"
+
+        try:
+            with open(sync_token_file, "w") as token_file:
+                token_file.write(new)
+        except OSError:
+            return old
+
+        return new
+
+    def delete_sync_token(self, acc_id):
+        """
+        Delete the sync token file for the account, called when account is
+        removed
+        """
+
+        sync_token_file = self.based.config.get_dir() / f"/sync_token{acc_id}"
+        if not sync_token_file.exists():
+            return
+
+        os.remove(sync_token_file)
+
+    def run_client(self, account, ready, running):
+        """
+        Run client connection in a new thread,
+        as long as running Event is set to true.
+        """
+
+        # get event loop for thread
+        # TODO: remove this here?
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+
+        # create a new lock for the thread
+        lock = Lock()
+
+        # parse user to get url and username
+        url, user, domain = parse_account_user(account.user)
+
+        # init client connection
+        client = BackendClient(account, lock)
+
+        # save client connection in active connections dictionary
+        self.connections[account.aid] = client
+
+        # thread is ready to enter main loop, inform caller
+        ready.set()
+
+        # enter main loop, and keep running until "running" is set to false
+        # by the KeyboardInterrupt
+        while running.is_set():
+            # if client is offline, (re)connect
+            if client.status == "offline":
+                # if there is an old listener, stop it
+                if client.client:
+                    client.client.stop_listener_thread()
+
+                # start client connection
+                client.connect(url, user, domain, account.password)
+
+                # initialize sync token with last known value
+                sync_token = self.load_sync_token(account.aid)
+                client.client.sync_token = sync_token
+
+                # start the listener thread in the matrix client
+                client.client.start_listener_thread(
+                    exception_handler=client.listener_exception)
+
+                # skip other parts until the client is really online
+                continue
+
+            # send pending outgoing messages, update the (safe copy of the)
+            # buddy list, update the sync token, then sleep a little bit
+            client.handle_queue()
+            client.update_buddies()
+            sync_token = self.update_sync_token(account.aid, sync_token,
+                                                client.client.sync_token)
+            time.sleep(0.1)
+
+        # stop the listener thread in the matrix client
+        client.client.stop_listener_thread()
+
+    def add_account(self, account_id, _cmd, params):
+        """
+        Add a new account (from based) and run a new client thread for it
+        """
+
+        # only handle matrix accounts
+        account = params[0]
+        if account.type != "matrix":
+            return ""
+
+        # event to signal thread is ready
+        ready = Event()
+
+        # event to signal if thread should stop
+        running = Event()
+        running.set()
+
+        # create and start thread
+        new_thread = Thread(target=self.run_client, args=(account, ready,
+                                                          running))
+        new_thread.start()
+
+        # save thread in active threads dictionary
+        self.threads[account_id] = (new_thread, running)
+
+        # wait until thread initialized everything
+        ready.wait()
+
+        return ""
+
+    def del_account(self, account_id, _cmd, _params):
+        """
+        Delete an existing account (in based) and
+        stop matrix client thread for it
+        """
+
+        # stop thread
+        thread, running = self.threads[account_id]
+        running.clear()
+        thread.join()
+
+        # delete sync token file
+        self.delete_sync_token(account_id)
+
+        # cleanup
+        del self.connections[account_id]
+        del self.threads[account_id]
+
+        return ""
+
+    def stop_thread(self, account_id, _cmd, _params):
+        """
+        Quit backend/stop client thread
+        """
+
+        # stop thread
+        print("Signalling account thread to stop.")
+        _thread, running = self.threads[account_id]
+        running.clear()
+
+    def based_interrupt(self, _account_id, _cmd, _params):
+        """
+        KeyboardInterrupt event in based
+        """
+
+        for _thread, running in self.threads.values():
+            print("Signalling account thread to stop.")
+            running.clear()
+
+    def based_quit(self, _account_id, _cmd, _params):
+        """
+        Based shut down event
+        """
+
+        print("Waiting for all threads to finish. This might take a while.")
+        for thread, _running in self.threads.values():
+            thread.join()
 
 
 def escape_name(name):
@@ -642,63 +870,6 @@ def unescape_name(name):
 
     # unescape spaces etc.
     return urllib.parse.unquote(name)
-
-
-def load_sync_token(acc_id):
-    """
-    Load an old sync token from file if available
-    """
-
-    # make sure path and file exist
-    CONFIG["dir"].mkdir(parents=True, exist_ok=True)
-    os.chmod(CONFIG["dir"], stat.S_IRWXU)
-    sync_token_file = CONFIG["dir"] / f"sync_token{acc_id}"
-    if not sync_token_file.exists():
-        open(sync_token_file, "a").close()
-
-    # make sure only user can read/write file before using it
-    os.chmod(sync_token_file, stat.S_IRUSR | stat.S_IWUSR)
-
-    try:
-        with open(sync_token_file, "r") as token_file:
-            token = token_file.readline()
-    except OSError:
-        token = ""
-
-    return token
-
-
-def update_sync_token(acc_id, old, new):
-    """
-    Update an existing sync token with a newer one
-    """
-
-    if old == new:
-        # tokens are not different
-        return old
-
-    # update token file
-    sync_token_file = CONFIG["dir"] / f"/sync_token{acc_id}"
-
-    try:
-        with open(sync_token_file, "w") as token_file:
-            token_file.write(new)
-    except OSError:
-        return old
-
-    return new
-
-
-def delete_sync_token(acc_id):
-    """
-    Delete the sync token file for the account, called when account is removed
-    """
-
-    sync_token_file = CONFIG["dir"] / f"/sync_token{acc_id}"
-    if not sync_token_file.exists():
-        return
-
-    os.remove(sync_token_file)
 
 
 def parse_account_user(acc_user):
@@ -729,180 +900,13 @@ def parse_account_user(acc_user):
     return url, user, domain
 
 
-def run_client(account, ready, running):
-    """
-    Run client connection in a new thread,
-    as long as running Event is set to true.
-    """
-
-    # get event loop for thread
-    # TODO: remove this here?
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-
-    # create a new lock for the thread
-    lock = Lock()
-
-    # parse user to get url and username
-    url, user, domain = parse_account_user(account.user)
-
-    # init client connection
-    client = NuqqlClient(account, lock)
-
-    # save client connection in active connections dictionary
-    CONNECTIONS[account.aid] = client
-
-    # thread is ready to enter main loop, inform caller
-    ready.set()
-
-    # enter main loop, and keep running until "running" is set to false
-    # by the KeyboardInterrupt
-    while running.is_set():
-        # if client is offline, (re)connect
-        if client.status == "offline":
-            # if there is an old listener, stop it
-            if client.client:
-                client.client.stop_listener_thread()
-
-            # start client connection
-            client.connect(url, user, domain, account.password)
-
-            # initialize sync token with last known value
-            sync_token = load_sync_token(account.aid)
-            client.client.sync_token = sync_token
-
-            # start the listener thread in the matrix client
-            client.client.start_listener_thread(
-                exception_handler=client.listener_exception)
-
-            # skip other parts until the client is really online
-            continue
-
-        # send pending outgoing messages, update the (safe copy of the)
-        # buddy list, update the sync token, then sleep a little bit
-        client.handle_queue()
-        client.update_buddies()
-        sync_token = update_sync_token(account.aid, sync_token,
-                                       client.client.sync_token)
-        time.sleep(0.1)
-
-    # stop the listener thread in the matrix client
-    client.client.stop_listener_thread()
-
-
-def add_account(account_id, _cmd, params):
-    """
-    Add a new account (from based) and run a new client thread for it
-    """
-
-    # only handle matrix accounts
-    account = params[0]
-    if account.type != "matrix":
-        return ""
-
-    # event to signal thread is ready
-    ready = Event()
-
-    # event to signal if thread should stop
-    running = Event()
-    running.set()
-
-    # create and start thread
-    new_thread = Thread(target=run_client, args=(account, ready, running))
-    new_thread.start()
-
-    # save thread in active threads dictionary
-    THREADS[account_id] = (new_thread, running)
-
-    # wait until thread initialized everything
-    ready.wait()
-
-    return ""
-
-
-def del_account(account_id, _cmd, _params):
-    """
-    Delete an existing account (in based) and
-    stop matrix client thread for it
-    """
-
-    # stop thread
-    thread, running = THREADS[account_id]
-    running.clear()
-    thread.join()
-
-    # delete sync token file
-    delete_sync_token(account_id)
-
-    # cleanup
-    del CONNECTIONS[account_id]
-    del THREADS[account_id]
-
-    return ""
-
-
-def stop_thread(account_id, _cmd, _params):
-    """
-    Quit backend/stop client thread
-    """
-
-    # stop thread
-    print("Signalling account thread to stop.")
-    _thread, running = THREADS[account_id]
-    running.clear()
-
-
-def based_interrupt(_account_id, _cmd, _params):
-    """
-    KeyboardInterrupt event in based
-    """
-
-    for _thread, running in THREADS.values():
-        print("Signalling account thread to stop.")
-        running.clear()
-
-
-def based_quit(_account_id, _cmd, _params):
-    """
-    Based shut down event
-    """
-
-    print("Waiting for all threads to finish. This might take a while.")
-    for thread, _running in THREADS.values():
-        thread.join()
-
-
 def main():
     """
     Main function, initialize everything and start server
     """
 
-    # set callbacks
-    callbacks = [
-        # based events
-        (Callback.BASED_INTERRUPT, based_interrupt),
-        (Callback.BASED_QUIT, based_quit),
-
-        # nuqql messages
-        (Callback.QUIT, stop_thread),
-        (Callback.ADD_ACCOUNT, add_account),
-        (Callback.DEL_ACCOUNT, del_account),
-        (Callback.SEND_MESSAGE, send_message),
-        (Callback.SET_STATUS, enqueue),
-        (Callback.GET_STATUS, enqueue),
-        (Callback.CHAT_LIST, enqueue),
-        (Callback.CHAT_JOIN, enqueue),
-        (Callback.CHAT_PART, enqueue),
-        (Callback.CHAT_SEND, chat_send),
-        (Callback.CHAT_USERS, enqueue),
-        (Callback.CHAT_INVITE, enqueue),
-    ]
-
-    # start based
-    based = Based("matrixd", callbacks)
-    for key, value in based.config.get().items():
-        CONFIG[key] = value
-    based.start()
+    server = BackendServer()
+    server.start()
 
 
 if __name__ == '__main__':
