@@ -12,7 +12,7 @@ import time
 import os
 import stat
 
-from typing import TYPE_CHECKING, Dict, Tuple
+from typing import TYPE_CHECKING, Dict, List, Tuple
 from threading import Thread, Lock, Event
 from types import SimpleNamespace
 
@@ -30,19 +30,33 @@ if TYPE_CHECKING:   # imports for typing
     from nuqql_based.account import Account
 
 
-class BackendClient():
+class BackendClient:
     """
     Backend Client Class for connections to the IM network
     """
 
-    def __init__(self, account, lock):
+    def __init__(self, account: "Account", lock: Lock) -> None:
         # account
         self.account = account
 
-        # server connection
-        self.client = None
+        # parse user to get url and username
+        url, user, domain = parse_account_user(account.user)
+
+        # initialize matrix client connection
+        self.client = MatrixClient(url)
+
+        # add matrix client event handlers
+        self.client.add_listener(self.listener)
+        self.client.add_presence_listener(self.presence_listener)
+        self.client.add_invite_listener(self.invite_listener)
+        self.client.add_leave_listener(self.leave_listener)
+        self.client.add_ephemeral_listener(self.ephemeral_listener)
+
+        # construct matrix user name with user and domain name
+        self.user = "@{}:{}".format(user, domain)
+
+        # sync token and connection config
         self.token = None
-        self.user = ""
         self.config = SimpleNamespace(
             # Send regular message to client for membership events?
             membership_message_msg=True,
@@ -55,40 +69,27 @@ class BackendClient():
         # data structures
         self.lock = lock
         self.status = "offline"
-        self.queue = []
+        self.queue: List[Tuple[Callback, Tuple]] = []
 
         # separate data structure for managing room invites
-        self.room_invites = {}
+        self.room_invites: Dict[str, Tuple[str, str, str, str, str]] = {}
 
-        # misc
-        # room = client.create_room("my_room_alias")
-        # room.send_text("Hello!")
-
-    def connect(self, url, username, domain, password):
+    def connect(self) -> None:
         """
         Connect to server
         """
 
+        # parse user to get url and username
+        _url, username, _domain = parse_account_user(self.account.user)
+
         try:
-            # initialize matrix client connection
-            # construct matrix user name with user and domain name
-            self.user = "@{}:{}".format(username, domain)
-            self.client = MatrixClient(url)
-
-            # add event handlers
-            self.client.add_listener(self.listener)
-            self.client.add_presence_listener(self.presence_listener)
-            self.client.add_invite_listener(self.invite_listener)
-            self.client.add_leave_listener(self.leave_listener)
-            self.client.add_ephemeral_listener(self.ephemeral_listener)
-
             # login and limit sync to only retrieve 0 events per room, so we do
             # not get old messages again. this changes the sync_filter. so, we
             # have to save the defaults and apply them after login to get
             # events again.
             sync_filter = self.client.sync_filter
-            self.token = self.client.login(username=username,
-                                           password=password, limit=0)
+            self.token = self.client.login(
+                username=username, password=self.account.password, limit=0)
             self.client.sync_filter = sync_filter
             self.status = "online"
 
@@ -96,7 +97,7 @@ class BackendClient():
             self.account.logger.error(error)
             self.status = "offline"
 
-    def listener_exception(self, exception):
+    def listener_exception(self, exception: Exception) -> None:
         """
         Handle listener exception
         """
@@ -239,7 +240,7 @@ class BackendClient():
 
         self.account.logger.debug("ephemeral: {}".format(event))
 
-    def message(self, msg):
+    def message(self, msg) -> None:
         """
         Message handler
         """
@@ -249,41 +250,41 @@ class BackendClient():
             return
 
         # save timestamp and message in messages list and history
-        tstamp = int(int(msg["origin_server_ts"])/1000)
+        tstamp = str(int(int(msg["origin_server_ts"])/1000))
         formatted_msg = Message.chat_msg(
             self.account, tstamp, msg["sender"], msg["room_id"],
             msg["content"]["body"])
         self.account.receive_msg(formatted_msg)
 
-    def muc_message(self, msg):
+    def muc_message(self, msg) -> None:
         """
         Groupchat message handler.
         """
         # TODO: if we do nothing extra here, move it into normal message
         # handler above?
 
-    def _muc_presence(self, presence, status):
+    def _muc_presence(self, presence, status) -> None:
         """
         Group chat presence handler
         """
 
         # get chat and our nick in the chat
 
-    def muc_online(self, presence):
+    def muc_online(self, presence) -> None:
         """
         Group chat online presence handler
         """
 
         self._muc_presence(presence, "online")
 
-    def muc_offline(self, presence):
+    def muc_offline(self, presence) -> None:
         """
         Group chat offline presence handler
         """
 
         self._muc_presence(presence, "offline")
 
-    def enqueue_command(self, cmd, params):
+    def enqueue_command(self, cmd: Callback, params: Tuple) -> None:
         """
         Enqueue a command in the command queue
         Tuple consists of:
@@ -295,7 +296,7 @@ class BackendClient():
         self.queue.append((cmd, params))
         self.lock.release()
 
-    def handle_queue(self):
+    def handle_queue(self) -> None:
         """
         Handle all queued commands
         """
@@ -324,7 +325,7 @@ class BackendClient():
             if cmd == Callback.CHAT_INVITE:
                 self._chat_invite(params[0], params[1])
 
-    def _send_message(self, message_tuple):
+    def _send_message(self, message_tuple: Tuple) -> None:
         """
         Send a single message
         """
@@ -350,7 +351,7 @@ class BackendClient():
                     self.account.logger.error(error)
                 return
 
-    def _set_status(self, status):
+    def _set_status(self, status: str) -> None:
         """
         Set the current status of the account
         """
@@ -358,14 +359,14 @@ class BackendClient():
         # TODO: do something when status changes, e.g., from offline to online?
         self.status = status
 
-    def _get_status(self):
+    def _get_status(self) -> None:
         """
         Get the current status of the account
         """
 
         self.account.receive_msg(Message.status(self.account, self.status))
 
-    def _chat_list(self):
+    def _chat_list(self) -> None:
         """
         List active chats of account
         """
@@ -376,7 +377,7 @@ class BackendClient():
                 self.account, room.room_id, escape_name(room.display_name),
                 self.user))
 
-    def _chat_create(self, name):
+    def _chat_create(self, name: str) -> None:
         """
         Create a group chat room with name <name>
         """
@@ -391,7 +392,7 @@ class BackendClient():
             self.status = "offline"
             self.account.logger.error(error)
 
-    def _chat_join(self, chat):
+    def _chat_join(self, chat: str) -> None:
         """
         Join chat on account
         """
@@ -411,7 +412,7 @@ class BackendClient():
             self.status = "offline"
             self.account.logger.error(error)
 
-    def _chat_part(self, chat):
+    def _chat_part(self, chat: str) -> None:
         """
         Leave chat on account
         """
@@ -455,12 +456,12 @@ class BackendClient():
 
         return
 
-    def _chat_users(self, chat):
+    def _chat_users(self, chat: str) -> None:
         """
         Get list of users in chat on account
         """
 
-        roster = {}
+        roster: Dict = {}
         rooms = self._get_rooms()
         for room_id, room in rooms.items():
             if unescape_name(chat) == room.display_name or \
@@ -496,7 +497,7 @@ class BackendClient():
                     self.account.receive_msg(Message.chat_user(
                         self.account, chat, user_id, name, status))
 
-    def _chat_invite(self, chat, user_id):
+    def _chat_invite(self, chat: str, user_id: str) -> None:
         """
         Invite user to chat
         """
@@ -516,7 +517,7 @@ class BackendClient():
                     self.status = "offline"
                     self.account.logger.error(error)
 
-    def update_buddies(self):
+    def update_buddies(self) -> None:
         """
         Create a "safe" copy of roster
         """
@@ -554,7 +555,7 @@ class BackendClient():
         # update account's buddy list with buddies
         self.account.update_buddies(buddies)
 
-    def _get_rooms(self):
+    def _get_rooms(self) -> Dict:
         """
         Get list of rooms
         """
@@ -735,9 +736,6 @@ class BackendServer:
         # create a new lock for the thread
         lock = Lock()
 
-        # parse user to get url and username
-        url, user, domain = parse_account_user(account.user)
-
         # init client connection
         client = BackendClient(account, lock)
 
@@ -757,7 +755,7 @@ class BackendServer:
                     client.client.stop_listener_thread()
 
                 # start client connection
-                client.connect(url, user, domain, account.password)
+                client.connect()
 
                 # initialize sync token with last known value
                 sync_token = self.load_sync_token(account.aid)
