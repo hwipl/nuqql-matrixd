@@ -29,6 +29,9 @@ from nuqql_based.callback import Callback
 if TYPE_CHECKING:   # imports for typing
     from nuqql_based.account import Account
 
+# matrixd version
+VERSION = "0.2"
+
 
 class BackendClient:
     """
@@ -604,7 +607,7 @@ class BackendServer:
         ]
 
         # start based
-        self.based = Based("matrixd", callbacks)
+        self.based = Based("matrixd", VERSION, callbacks)
 
     def start(self) -> None:
         """
