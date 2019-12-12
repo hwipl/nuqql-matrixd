@@ -6,8 +6,8 @@ Helper script for starting matrixd
 
 import sys
 
-import nuqql_matrixd.matrixd
+import nuqql_matrixd.main
 import nuqql_matrixd
 
 # start nuqql
-sys.exit(nuqql_matrixd.matrixd.main())
+sys.exit(nuqql_matrixd.main.main())

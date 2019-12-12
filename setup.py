@@ -27,7 +27,7 @@ setup(
     url="https://github.com/hwipl/nuqql-matrixd",
     packages=["nuqql_matrixd"],
     entry_points={
-        "console_scripts": ["nuqql-matrixd = nuqql_matrixd.matrixd:main"]
+        "console_scripts": ["nuqql-matrixd = nuqql_matrixd.main:main"]
     },
     classifiers=CLASSIFIERS,
     python_requires='>=3.6',
