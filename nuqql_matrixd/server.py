@@ -5,9 +5,6 @@ matrixd backend server
 import asyncio
 import html
 import re
-import time
-import os
-import stat
 
 from typing import TYPE_CHECKING, Dict, Tuple
 from threading import Thread, Lock, Event
@@ -122,61 +119,6 @@ class BackendServer:
         return self.send_message(account_id, Callback.SEND_MESSAGE,
                                  (chat, msg, "groupchat"))
 
-    def load_sync_token(self, acc_id: int) -> str:
-        """
-        Load an old sync token from file if available
-        """
-
-        # make sure path and file exist
-        self.based.config.get_dir().mkdir(parents=True, exist_ok=True)
-        os.chmod(self.based.config.get_dir(), stat.S_IRWXU)
-        sync_token_file = self.based.config.get_dir() / f"sync_token{acc_id}"
-        if not sync_token_file.exists():
-            open(sync_token_file, "a").close()
-
-        # make sure only user can read/write file before using it
-        os.chmod(sync_token_file, stat.S_IRUSR | stat.S_IWUSR)
-
-        try:
-            with open(sync_token_file, "r") as token_file:
-                token = token_file.readline()
-        except OSError:
-            token = ""
-
-        return token
-
-    def update_sync_token(self, acc_id: int, old: str, new: str) -> str:
-        """
-        Update an existing sync token with a newer one
-        """
-
-        if old == new:
-            # tokens are not different
-            return old
-
-        # update token file
-        sync_token_file = self.based.config.get_dir() / f"/sync_token{acc_id}"
-
-        try:
-            with open(sync_token_file, "w") as token_file:
-                token_file.write(new)
-        except OSError:
-            return old
-
-        return new
-
-    def delete_sync_token(self, acc_id: int) -> None:
-        """
-        Delete the sync token file for the account, called when account is
-        removed
-        """
-
-        sync_token_file = self.based.config.get_dir() / f"/sync_token{acc_id}"
-        if not sync_token_file.exists():
-            return
-
-        os.remove(sync_token_file)
-
     def run_client(self, account: "Account", ready: Event,
                    running: Event) -> None:
         """
@@ -201,39 +143,8 @@ class BackendServer:
         # thread is ready to enter main loop, inform caller
         ready.set()
 
-        # enter main loop, and keep running until "running" is set to false
-        # by the KeyboardInterrupt
-        while running.is_set():
-            # if client is offline, (re)connect
-            if client.status == "offline":
-                # if there is an old listener, stop it
-                if client.client:
-                    client.client.stop_listener_thread()
-
-                # start client connection
-                client.connect()
-
-                # initialize sync token with last known value
-                sync_token = self.load_sync_token(account.aid)
-                client.client.sync_token = sync_token
-
-                # start the listener thread in the matrix client
-                client.client.start_listener_thread(
-                    exception_handler=client.listener_exception)
-
-                # skip other parts until the client is really online
-                continue
-
-            # send pending outgoing messages, update the (safe copy of the)
-            # buddy list, update the sync token, then sleep a little bit
-            client.handle_queue()
-            client.update_buddies()
-            sync_token = self.update_sync_token(account.aid, sync_token,
-                                                client.client.sync_token)
-            time.sleep(0.1)
-
-        # stop the listener thread in the matrix client
-        client.client.stop_listener_thread()
+        # start client; this returns when client is stopped
+        client.start(running)
 
     def add_account(self, account_id: int, _cmd: Callback,
                     params: Tuple) -> str:
@@ -278,8 +189,9 @@ class BackendServer:
         running.clear()
         thread.join()
 
-        # delete sync token file
-        self.delete_sync_token(account_id)
+        # let client clean up
+        client = self.connections[account_id]
+        client.del_account()
 
         # cleanup
         del self.connections[account_id]
