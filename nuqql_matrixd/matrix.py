@@ -191,7 +191,6 @@ class MatrixClient:
             self.logger.error(error)
             self.status = "offline"
 
-        print(self.status)
         return self.status  # remove return?
 
     def stop(self) -> None:
