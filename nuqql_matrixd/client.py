@@ -373,8 +373,7 @@ class BackendClient:
 
         # update token file
         acc_id = self.account.aid
-        sync_token_file = self.account.config.get_dir() / \
-            f"/sync_token{acc_id}"
+        sync_token_file = self.account.config.get_dir() / f"sync_token{acc_id}"
 
         try:
             with open(sync_token_file, "w") as token_file:
@@ -391,8 +390,7 @@ class BackendClient:
         """
 
         acc_id = self.account.aid
-        sync_token_file = self.account.config.get_dir() / \
-            f"/sync_token{acc_id}"
+        sync_token_file = self.account.config.get_dir() / f"sync_token{acc_id}"
         if not sync_token_file.exists():
             return
 
