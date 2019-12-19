@@ -4,9 +4,13 @@
 nuqql-matrixd setup file
 """
 
+import os
+import re
+import codecs
+
 from setuptools import setup
 
-VERSION = "0.2"
+# setup parameters
 DESCRIPTION = "Matrix client network daemon using the Matrix Python SDK"
 with open("README.md", 'r') as f:
     LONG_DESCRIPTION = f.read()
@@ -15,9 +19,35 @@ CLASSIFIERS = [
     "License :: OSI Approved :: MIT License",
 ]
 
+
+# setup helpers
+def read(*parts):
+    """
+    Read encoded file
+    """
+
+    here = os.path.abspath(os.path.dirname(__file__))
+    with codecs.open(os.path.join(here, *parts), 'r') as enc_file:
+        return enc_file.read()
+
+
+def find_version(*file_paths):
+    """
+    Find version in encoded file
+    """
+
+    version_file = read(*file_paths)
+    version_pattern = r"^VERSION = ['\"]([^'\"]*)['\"]"
+    version_match = re.search(version_pattern, version_file, re.M)
+    if version_match:
+        return version_match.group(1)
+    raise RuntimeError("Unable to find version string.")
+
+
+# run setup
 setup(
     name="nuqql-matrixd",
-    version=VERSION,
+    version=find_version("nuqql_matrixd", "server.py"),
     description=DESCRIPTION,
     license="MIT",
     long_description=LONG_DESCRIPTION,
