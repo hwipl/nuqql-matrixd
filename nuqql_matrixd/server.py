@@ -34,6 +34,12 @@ class BackendServer:
     def __init__(self) -> None:
         self.connections: Dict[int, BackendClient] = {}
         self.threads: Dict[int, Tuple[Thread, Event]] = {}
+        self.based = Based("matrixd", VERSION)
+
+    def start(self) -> None:
+        """
+        Start server
+        """
 
         # set callbacks
         callbacks = [
@@ -55,15 +61,9 @@ class BackendServer:
             (Callback.CHAT_USERS, self.enqueue),
             (Callback.CHAT_INVITE, self.enqueue),
         ]
+        self.based.set_callbacks(callbacks)
 
         # start based
-        self.based = Based("matrixd", VERSION, callbacks)
-
-    def start(self) -> None:
-        """
-        Start server
-        """
-
         self.based.start()
 
     def enqueue(self, account_id: int, cmd: Callback, params: Tuple) -> str:
