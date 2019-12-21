@@ -58,7 +58,8 @@ Run nuqql backend.
 optional arguments:
   -h, --help            show this help message and exit
   --version             show program's version number and exit
-  --af {inet,unix}      socket address family: "inet" for AF_INET, "unix" for AF_UNIX
+  --af {inet,unix}      socket address family: "inet" for AF_INET, "unix" for
+                        AF_UNIX
   --address ADDRESS     AF_INET listen address
   --port PORT           AF_INET listen port
   --sockfile SOCKFILE   AF_UNIX socket file in DIR
