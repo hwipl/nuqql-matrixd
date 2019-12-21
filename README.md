@@ -5,24 +5,27 @@ the [Matrix Python SDK](https://github.com/matrix-org/matrix-python-sdk) to
 connect to Matrix chat networks. It can be used as a backend for
 [nuqql](https://github.com/hwipl/nuqql) or as a standalone chat client daemon.
 
-nuqql-matrixd is a fork of [nuqql-based](https://github.com/hwipl/nuqql-based)
-that adds the Matrix Python SDK for Matrix support. Thus, the [Matrix Python
-SDK](https://github.com/matrix-org/matrix-python-sdk) is a requirement to run
-nuqql-matrixd. Another optional dependency is
-[daemon](https://pypi.org/project/python-daemon/), that is needed to run
-slixmppd in daemon mode.
+nuqql-matrixd's dependencies are:
+* [nuqql-based](https://github.com/hwipl/nuqql-based)
+* [Matrix Python SDK](https://github.com/matrix-org/matrix-python-sdk)
+* [daemon](https://pypi.org/project/python-daemon/) (optional)
 
 
 ## Quick Start
 
-Make sure you have installed nuqql-matrixd's dependencies:
-* [Matrix Python SDK](https://github.com/matrix-org/matrix-python-sdk): for
-  Matrix support
-* [daemon](https://pypi.org/project/python-daemon/) (optional): for daemonize
-  support
+You can install nuqql-matrixd and its dependencies, for example, with pip for
+your user only with the following command:
 
-You can run nuqql-matrixd by executing *matrixd.py*, e.g., with
-`./matrixd.py`.
+```console
+$ pip install --user nuqql-matrixd
+```
+
+After the installation, you can run nuqql-matrixd by running the
+`nuqql-matrixd` command:
+
+```console
+$ nuqql-matrixd
+```
 
 By default, it listens on TCP port 32000 on your local host. So, you can
 connect with telnet to it, e.g., with `telnet localhost 32000`.
@@ -39,19 +42,19 @@ In the telnet session you can:
 
 ## Usage
 
-See `matrixd.py --help` for a list of command line arguments:
+See `nuqql-matrixd --help` for a list of command line arguments:
 
 ```
-usage: matrixd.py [-h] [--af {inet,unix}] [--address ADDRESS] [--port PORT]
-                  [--sockfile SOCKFILE] [--dir DIR] [-d]
-                  [--loglevel {debug,info,warn,error}]
+usage: nuqql-matrixd [-h] [--version] [--af {inet,unix}] [--address ADDRESS]
+[--port PORT] [--sockfile SOCKFILE] [--dir DIR] [-d] [--loglevel
+{debug,info,warn,error}] [--disable-history]
 
 Run nuqql backend.
 
 optional arguments:
   -h, --help            show this help message and exit
-  --af {inet,unix}      socket address family: "inet" for AF_INET, "unix" for
-                        AF_UNIX
+  --version             show program's version number and exit
+  --af {inet,unix}      socket address family: "inet" for AF_INET, "unix" for AF_UNIX
   --address ADDRESS     AF_INET listen address
   --port PORT           AF_INET listen port
   --sockfile SOCKFILE   AF_UNIX socket file in DIR
@@ -59,11 +62,18 @@ optional arguments:
   -d, --daemonize       daemonize process
   --loglevel {debug,info,warn,error}
                         Logging level
+  --disable-history     disable message history
 ```
 
 
 ## Changes
 
+* devel:
+  * Use nuqql-based as dependency and adapt to nuqql-based changes
+  * Add setup.py for installation and package distribution
+  * Add python type annotations
+  * Restructure code
+  * Cleanups, fixes, and improvements
 * v0.2:
   * Allow specification of the homeserver url in the account user when adding
     an account. Thus, the following account users are possible:
