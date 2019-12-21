@@ -28,7 +28,11 @@ $ nuqql-matrixd
 ```
 
 By default, it listens on TCP port 32000 on your local host. So, you can
-connect with telnet to it, e.g., with `telnet localhost 32000`.
+connect with, e.g., telnet to it with the following command:
+
+```console
+telnet localhost 32000
+```
 
 In the telnet session you can:
 * add Matrix accounts with: `account add matrix <account> <password>`.
