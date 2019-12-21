@@ -31,7 +31,7 @@ By default, it listens on TCP port 32000 on your local host. So, you can
 connect with, e.g., telnet to it with the following command:
 
 ```console
-telnet localhost 32000
+$ telnet localhost 32000
 ```
 
 In the telnet session you can:
