@@ -3,17 +3,15 @@ matrix specific stuff
 """
 
 import urllib.parse
+import logging
 import time
 
-from typing import TYPE_CHECKING, Callable, Dict, List, Tuple
+from typing import Callable, Dict, List, Tuple
 
 # matrix imports
 from matrix_client.client import MatrixClient as _MatrixClient  # type: ignore
 from matrix_client.errors import MatrixRequestError             # type: ignore
 from matrix_client.errors import MatrixHttpLibError             # type: ignore
-
-if TYPE_CHECKING:   # typing imports
-    import logging
 
 
 class MatrixClient:
@@ -21,10 +19,8 @@ class MatrixClient:
     Matrix client class
     """
 
-    def __init__(self, logger: "logging.Logger", url: str,
-                 message_handler: Callable,
+    def __init__(self, url: str, message_handler: Callable,
                  membership_handler: Callable) -> None:
-        self.logger = logger
         self.client = _MatrixClient(url)
         self.token = ""
         self.status = "offline"
@@ -48,7 +44,7 @@ class MatrixClient:
         Event listener
         """
 
-        self.logger.debug("listener: {}".format(event))
+        logging.debug("listener: %s", event)
         if event["type"] == "m.room.message":
             self.message(event)
         if event["type"] == "m.room.member":
@@ -92,12 +88,13 @@ class MatrixClient:
         self.membership_handler(membership, tstamp, sender, sender_name,
                                 room_id, room_name, invited_user)
 
-    def presence_listener(self, event):
+    @staticmethod
+    def presence_listener(event):
         """
         Presence event listener
         """
 
-        self.logger.debug("presence: {}".format(event))
+        logging.debug("presence: %s", event)
 
     def invite_listener(self, room_id, events):
         """
@@ -135,19 +132,21 @@ class MatrixClient:
         # add event to event list
         self.room_invites[room_id] = invite
 
-    def leave_listener(self, room_id, event):
+    @staticmethod
+    def leave_listener(room_id, event):
         """
         Leave event listener
         """
 
-        self.logger.debug("leave: {} {}".format(room_id, event))
+        logging.debug("leave: %s %s", room_id, event)
 
-    def ephemeral_listener(self, event):
+    @staticmethod
+    def ephemeral_listener(event):
         """
         Ephemeral event listener
         """
 
-        self.logger.debug("ephemeral: {}".format(event))
+        logging.debug("ephemeral: %s", event)
 
     def listener_exception(self, exception: Exception) -> None:
         """
@@ -156,7 +155,7 @@ class MatrixClient:
 
         error = "Stopping listener because exception occured " \
                 "in listener: {}".format(exception)
-        self.logger.error(error)
+        logging.error(error)
         self.client.should_listen = False
         self.status = "offline"
 
@@ -188,7 +187,7 @@ class MatrixClient:
                 exception_handler=self.listener_exception)
 
         except (MatrixRequestError, MatrixHttpLibError) as error:
-            self.logger.error(error)
+            logging.error(error)
             self.status = "offline"
 
         return self.status  # remove return?
@@ -215,11 +214,11 @@ class MatrixClient:
         try:
             rooms = self.client.get_rooms()
         except MatrixRequestError as error:
-            self.logger.error(error)
+            logging.error(error)
             rooms = {}
         except MatrixHttpLibError as error:
             self.status = "offline"
-            self.logger.error(error)
+            logging.error(error)
             rooms = {}
 
         return rooms
@@ -247,11 +246,11 @@ class MatrixClient:
             display_name = self.client.get_user(user).get_display_name()
         except MatrixRequestError as error:
             display_name = user
-            self.logger.error(error)
+            logging.error(error)
         except MatrixHttpLibError as error:
             display_name = user
             self.status = "offline"
-            self.logger.error(error)
+            logging.error(error)
 
         return display_name
 
@@ -267,10 +266,10 @@ class MatrixClient:
                     room.send_html(html_msg, body=msg, msgtype='m.text')
                 except MatrixRequestError as error:
                     # TODO: return error to connected user?
-                    self.logger.error(error)
+                    logging.error(error)
                 except MatrixHttpLibError as error:
                     self.status = "offline"
-                    self.logger.error(error)
+                    logging.error(error)
                 return
 
     def create_room(self, room_name: str) -> str:
@@ -285,7 +284,7 @@ class MatrixClient:
             return "code: {} content: {}".format(error.code, error.content)
         except MatrixHttpLibError as error:
             self.status = "offline"
-            self.logger.error(error)
+            logging.error(error)
 
         return ""
 
@@ -305,7 +304,7 @@ class MatrixClient:
             return "code: {} content: {}".format(error.code, error.content)
         except MatrixHttpLibError as error:
             self.status = "offline"
-            self.logger.error(error)
+            logging.error(error)
 
         return ""
 
@@ -326,7 +325,7 @@ class MatrixClient:
                                                          error.content)
                 except MatrixHttpLibError as error:
                     self.status = "offline"
-                    self.logger.error(error)
+                    logging.error(error)
                 return ""
         # part a room we are invited to
         # TODO: add locking
@@ -341,7 +340,7 @@ class MatrixClient:
                                                          error.content)
                 except MatrixHttpLibError as error:
                     self.status = "offline"
-                    self.logger.error(error)
+                    logging.error(error)
                 # remove room from invites
                 self.room_invites = {k: v for k, v in self.room_invites.items()
                                      if k != room_id}
@@ -362,11 +361,11 @@ class MatrixClient:
                 try:
                     roster = self.client.api.get_room_members(room_id)
                 except MatrixRequestError as error:
-                    self.logger.error(error)
+                    logging.error(error)
                     roster = {}
                 except MatrixHttpLibError as error:
                     self.status = "offline"
-                    self.logger.error(error)
+                    logging.error(error)
                     roster = {}
 
         user_list = []
@@ -408,7 +407,7 @@ class MatrixClient:
                                                          error.content)
                 except MatrixHttpLibError as error:
                     self.status = "offline"
-                    self.logger.error(error)
+                    logging.error(error)
 
         return ""
 

@@ -36,8 +36,7 @@ class BackendClient:
         url, user, domain = parse_account_user(account.user)
 
         # initialize matrix client connection
-        self.client = MatrixClient(account.logger, url, self._message,
-                                   self._membership_event)
+        self.client = MatrixClient(url, self._message, self._membership_event)
 
         # construct matrix user name with user and domain name
         self.user = "@{}:{}".format(user, domain)
