@@ -73,7 +73,7 @@ optional arguments:
 
 ## Changes
 
-* devel:
+* v0.4.0:
   * Update nuqql-based to v0.2.0
 * v0.3:
   * Use nuqql-based as dependency and adapt to nuqql-based changes
