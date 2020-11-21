@@ -129,11 +129,8 @@ class BackendServer:
         as long as running Event is set to true.
         """
 
-        # create a new lock for the thread
-        lock = asyncio.Lock()
-
         # init client connection
-        client = BackendClient(account, lock)
+        client = BackendClient(account)
 
         # save client connection in active connections dictionary
         self.connections[account.aid] = client
