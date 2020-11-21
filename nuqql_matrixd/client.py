@@ -2,12 +2,11 @@
 matrixd backend client
 """
 
-import time
+import asyncio
 import stat
 import os
 
 from typing import TYPE_CHECKING, List, Tuple
-from threading import Lock, Event
 from types import SimpleNamespace
 
 # nuqq-based imports
@@ -28,7 +27,7 @@ class BackendClient:
     Backend Client Class for connections to the IM network
     """
 
-    def __init__(self, account: "Account", lock: Lock) -> None:
+    def __init__(self, account: "Account", lock: asyncio.Lock) -> None:
         # account
         self.account = account
 
@@ -64,7 +63,7 @@ class BackendClient:
         _url, username, _domain = parse_account_user(self.account.user)
         self.client.connect(username, self.account.password, sync_token)
 
-    def start(self, running: Event) -> None:
+    async def start(self, running: asyncio.Event) -> None:
         """
         Start the client
         """
@@ -85,11 +84,11 @@ class BackendClient:
 
             # send pending outgoing messages, update the (safe copy of the)
             # buddy list, update the sync token, then sleep a little bit
-            self.handle_queue()
+            await self.handle_queue()
             self.update_buddies()
             sync_token = self.update_sync_token(sync_token,
                                                 self.client.sync_token())
-            time.sleep(0.1)
+            await asyncio.sleep(0.1)
 
         # stop the listener thread in the matrix client
         self.client.stop()
@@ -173,25 +172,25 @@ class BackendClient:
 
         self._muc_presence(presence, "offline")
 
-    def enqueue_command(self, cmd: Callback, params: Tuple) -> None:
+    async def enqueue_command(self, cmd: Callback, params: Tuple) -> None:
         """
         Enqueue a command in the command queue
         Tuple consists of:
             command and its parameters
         """
 
-        self.lock.acquire()
+        await self.lock.acquire()
         # just add message tuple to queue
         self.queue.append((cmd, params))
         self.lock.release()
 
-    def handle_queue(self) -> None:
+    async def handle_queue(self) -> None:
         """
         Handle all queued commands
         """
 
         # create temporary copy and flush queue
-        self.lock.acquire()
+        await self.lock.acquire()
         queue = self.queue[:]
         self.queue = []
         self.lock.release()

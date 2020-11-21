@@ -7,7 +7,6 @@ import html
 import re
 
 from typing import TYPE_CHECKING, Dict, Optional, Tuple
-from threading import Thread, Lock, Event
 
 # nuqq-based imports
 from nuqql_based.based import Based
@@ -35,7 +34,6 @@ class BackendServer:
 
     def __init__(self) -> None:
         self.connections: Dict[int, BackendClient] = {}
-        self.threads: Dict[int, Tuple[Thread, Event]] = {}
         self.based = Based("matrixd", VERSION)
 
     async def start(self) -> None:
@@ -81,7 +79,7 @@ class BackendServer:
             # no active connection
             return ""
 
-        client.enqueue_command(cmd, params)
+        await client.enqueue_command(cmd, params)
 
         return ""
 
@@ -124,20 +122,15 @@ class BackendServer:
         return await self.send_message(account, Callback.SEND_MESSAGE,
                                        (chat, msg, "groupchat"))
 
-    def run_client(self, account: "Account", ready: Event,
-                   running: Event) -> None:
+    async def run_client(self, account: "Account", ready: asyncio.Event,
+                         running: asyncio.Event) -> None:
         """
         Run client connection in a new thread,
         as long as running Event is set to true.
         """
 
-        # get event loop for thread
-        # TODO: remove this here?
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-
         # create a new lock for the thread
-        lock = Lock()
+        lock = asyncio.Lock()
 
         # init client connection
         client = BackendClient(account, lock)
@@ -149,7 +142,7 @@ class BackendServer:
         ready.set()
 
         # start client; this returns when client is stopped
-        client.start(running)
+        await client.start(running)
 
     async def add_account(self, account: Optional["Account"], _cmd: Callback,
                           _params: Tuple) -> str:
@@ -163,22 +156,17 @@ class BackendServer:
             return ""
 
         # event to signal thread is ready
-        ready = Event()
+        ready = asyncio.Event()
 
         # event to signal if thread should stop
-        running = Event()
+        running = asyncio.Event()
         running.set()
 
-        # create and start thread
-        new_thread = Thread(target=self.run_client, args=(account, ready,
-                                                          running))
-        new_thread.start()
-
-        # save thread in active threads dictionary
-        self.threads[account.aid] = (new_thread, running)
+        # create and start task
+        asyncio.create_task(self.run_client(account, ready, running))
 
         # wait until thread initialized everything
-        ready.wait()
+        await ready.wait()
 
         return ""
 
@@ -189,33 +177,24 @@ class BackendServer:
         stop matrix client thread for it
         """
 
-        # stop thread
-        assert account
-        thread, running = self.threads[account.aid]
-        running.clear()
-        thread.join()
-
         # let client clean up
+        assert account
         client = self.connections[account.aid]
         await client.del_account()
 
         # cleanup
         del self.connections[account.aid]
-        del self.threads[account.aid]
 
         return ""
 
-    async def stop_thread(self, account: Optional["Account"], _cmd: Callback,
+    async def stop_thread(self, _account: Optional["Account"], _cmd: Callback,
                           _params: Tuple) -> str:
         """
         Quit backend/stop client thread
         """
 
         # stop thread
-        assert account
         print("Signalling account thread to stop.")
-        _thread, running = self.threads[account.aid]
-        running.clear()
         return ""
 
     async def based_interrupt(self, _account: Optional["Account"],
@@ -224,9 +203,6 @@ class BackendServer:
         KeyboardInterrupt event in based
         """
 
-        for _thread, running in self.threads.values():
-            print("Signalling account thread to stop.")
-            running.clear()
         return ""
 
     async def based_quit(self, _account: Optional["Account"], _cmd: Callback,
@@ -236,6 +212,4 @@ class BackendServer:
         """
 
         print("Waiting for all threads to finish. This might take a while.")
-        for thread, _running in self.threads.values():
-            thread.join()
         return ""
