@@ -2,7 +2,6 @@
 matrixd backend server
 """
 
-import asyncio
 import html
 import re
 
@@ -122,8 +121,7 @@ class BackendServer:
         return await self.send_message(account, Callback.SEND_MESSAGE,
                                        (chat, msg, "groupchat"))
 
-    async def run_client(self, account: "Account",
-                         ready: asyncio.Event) -> None:
+    async def run_client(self, account: "Account") -> None:
         """
         Run client connection
         """
@@ -133,9 +131,6 @@ class BackendServer:
 
         # save client connection in active connections dictionary
         self.connections[account.aid] = client
-
-        # thread is ready to enter main loop, inform caller
-        ready.set()
 
         # start client; this returns when client is stopped
         await client.start()
@@ -151,14 +146,8 @@ class BackendServer:
         if account.type != "matrix":
             return ""
 
-        # event to signal thread is ready
-        ready = asyncio.Event()
-
-        # create and start task
-        asyncio.create_task(self.run_client(account, ready))
-
-        # wait until thread initialized everything
-        await ready.wait()
+        # create and start client
+        await self.run_client(account)
 
         return ""
 

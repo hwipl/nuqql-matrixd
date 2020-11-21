@@ -62,7 +62,7 @@ class BackendClient:
         _url, username, _domain = parse_account_user(self.account.user)
         self.client.connect(username, self.account.password, sync_token)
 
-    async def start(self) -> None:
+    async def _start(self) -> None:
         """
         Start the client
         """
@@ -90,6 +90,13 @@ class BackendClient:
 
         # stop the listener thread in the matrix client
         self.client.stop()
+
+    async def start(self) -> None:
+        """
+        Start the client as a task
+        """
+
+        asyncio.create_task(self._start())
 
     def _membership_event(self, *params):
         """
