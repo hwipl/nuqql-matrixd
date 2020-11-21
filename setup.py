@@ -60,6 +60,6 @@ setup(
         "console_scripts": ["nuqql-matrixd = nuqql_matrixd.main:main"]
     },
     classifiers=CLASSIFIERS,
-    python_requires='>=3.6',
+    python_requires='>=3.7',
     install_requires=["nuqql-based~=0.2.0", "matrix_client"],
 )
