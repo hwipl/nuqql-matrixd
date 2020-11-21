@@ -50,6 +50,7 @@ class BackendServer:
             (Callback.QUIT, self.stop_thread),
             (Callback.ADD_ACCOUNT, self.add_account),
             (Callback.DEL_ACCOUNT, self.del_account),
+            (Callback.UPDATE_BUDDIES, self.enqueue),
             (Callback.SEND_MESSAGE, self.send_message),
             (Callback.SET_STATUS, self.enqueue),
             (Callback.GET_STATUS, self.enqueue),
