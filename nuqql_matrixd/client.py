@@ -62,14 +62,13 @@ class BackendClient:
         _url, username, _domain = parse_account_user(self.account.user)
         self.client.connect(username, self.account.password, sync_token)
 
-    async def start(self, running: asyncio.Event) -> None:
+    async def start(self) -> None:
         """
         Start the client
         """
 
-        # enter main loop, and keep running until "running" is set to false
-        # by the KeyboardInterrupt
-        while running.is_set():
+        # enter main loop
+        while True:
             # if client is offline, (re)connect
             if self.client.status == "offline":
                 # initialize sync token with last known value

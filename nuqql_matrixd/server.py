@@ -122,11 +122,10 @@ class BackendServer:
         return await self.send_message(account, Callback.SEND_MESSAGE,
                                        (chat, msg, "groupchat"))
 
-    async def run_client(self, account: "Account", ready: asyncio.Event,
-                         running: asyncio.Event) -> None:
+    async def run_client(self, account: "Account",
+                         ready: asyncio.Event) -> None:
         """
-        Run client connection in a new thread,
-        as long as running Event is set to true.
+        Run client connection
         """
 
         # init client connection
@@ -139,7 +138,7 @@ class BackendServer:
         ready.set()
 
         # start client; this returns when client is stopped
-        await client.start(running)
+        await client.start()
 
     async def add_account(self, account: Optional["Account"], _cmd: Callback,
                           _params: Tuple) -> str:
@@ -155,12 +154,8 @@ class BackendServer:
         # event to signal thread is ready
         ready = asyncio.Event()
 
-        # event to signal if thread should stop
-        running = asyncio.Event()
-        running.set()
-
         # create and start task
-        asyncio.create_task(self.run_client(account, ready, running))
+        asyncio.create_task(self.run_client(account, ready))
 
         # wait until thread initialized everything
         await ready.wait()
