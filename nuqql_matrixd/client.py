@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING, Tuple
 from types import SimpleNamespace
 
 # nuqq-based imports
+from nuqql_based.buddy import Buddy
 from nuqql_based.message import Message
 from nuqql_based.callback import Callback
 
@@ -179,8 +180,8 @@ class BackendClient:
             command and its parameters
         """
 
-        if cmd == Callback.UPDATE_BUDDIES:
-            self.update_buddies()
+        if cmd == Callback.GET_BUDDIES:
+            self.get_buddies(params[0])
         if cmd == Callback.SEND_MESSAGE:
             self._send_message(params)
         if cmd == Callback.SET_STATUS:
@@ -287,14 +288,13 @@ class BackendClient:
         if error != "":
             self.account.receive_msg(Message.error(error))
 
-    def update_buddies(self) -> None:
+    def get_buddies(self, online: bool) -> None:
         """
-        Create a "safe" copy of roster
+        Get roster/buddy list
         """
 
         # if we are offline, there are no buddies
         if self.client.status == "offline":
-            self.account.flush_buddies()
             return
 
         # get buddies/rooms
@@ -307,7 +307,7 @@ class BackendClient:
             status = "GROUP_CHAT"
 
             # add buddies to buddy list
-            buddy = (room.room_id, name, status)
+            buddy = Buddy(room.room_id, name, status)
             buddies.append(buddy)
 
         # handle pending room invites as temporary buddies
@@ -315,11 +315,14 @@ class BackendClient:
         for invite in invites.values():
             room_id, room_name, _sender, _sender_name, _tstamp = invite
             status = "GROUP_CHAT_INVITE"
-            buddy = (room_id, room_name, status)
+            buddy = Buddy(room_id, room_name, status)
             buddies.append(buddy)
 
-        # update account's buddy list with buddies
-        self.account.update_buddies(buddies)
+        # return buddy list
+        for buddy in buddies:
+            if online and buddy.status != "Available":
+                continue
+            self.account.receive_msg(Message.buddy(self.account, buddy))
 
     def load_sync_token(self) -> str:
         """
