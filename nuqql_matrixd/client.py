@@ -10,7 +10,6 @@ from typing import TYPE_CHECKING, Tuple
 from types import SimpleNamespace
 
 # nuqq-based imports
-from nuqql_based.buddy import Buddy
 from nuqql_based.message import Message
 from nuqql_based.callback import Callback
 
@@ -297,8 +296,11 @@ class BackendClient:
         if self.client.status == "offline":
             return
 
+        # if only online wanted, skip because no matrix room is "online"
+        if online:
+            return
+
         # get buddies/rooms
-        buddies = []
         rooms = self.client.get_rooms()
         for room in rooms.values():
             name = escape_name(room.display_name)
@@ -306,23 +308,19 @@ class BackendClient:
             # use special status for group chats
             status = "GROUP_CHAT"
 
-            # add buddies to buddy list
-            buddy = Buddy(room.room_id, name, status)
-            buddies.append(buddy)
+            # send buddy message
+            msg = Message.buddy(self.account, room.room_id, name, status)
+            self.account.receive_msg(msg)
 
         # handle pending room invites as temporary buddies
         invites = self.client.get_invites()
         for invite in invites.values():
             room_id, room_name, _sender, _sender_name, _tstamp = invite
             status = "GROUP_CHAT_INVITE"
-            buddy = Buddy(room_id, room_name, status)
-            buddies.append(buddy)
 
-        # return buddy list
-        for buddy in buddies:
-            if online and buddy.status != "Available":
-                continue
-            self.account.receive_msg(Message.buddy(self.account, buddy))
+            # send buddy message
+            msg = Message.buddy(self.account, room_id, room_name, status)
+            self.account.receive_msg(msg)
 
     def load_sync_token(self) -> str:
         """
