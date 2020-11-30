@@ -45,7 +45,6 @@ class BackendServer:
         callbacks: "CallbackList" = [
             # based events
             (Callback.BASED_INTERRUPT, self.based_interrupt),
-            (Callback.BASED_QUIT, self.based_quit),
 
             # nuqql messages
             (Callback.HELP_WELCOME, self._help_welcome),
@@ -205,13 +204,4 @@ class BackendServer:
         KeyboardInterrupt event in based
         """
 
-        return ""
-
-    async def based_quit(self, _account: Optional["Account"], _cmd: Callback,
-                         _params: Tuple) -> str:
-        """
-        Based shut down event
-        """
-
-        print("Waiting for all threads to finish. This might take a while.")
         return ""
