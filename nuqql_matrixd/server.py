@@ -43,9 +43,6 @@ class BackendServer:
 
         # set callbacks
         callbacks: "CallbackList" = [
-            # based events
-            (Callback.BASED_INTERRUPT, self.based_interrupt),
-
             # nuqql messages
             (Callback.HELP_WELCOME, self._help_welcome),
             (Callback.HELP_ACCOUNT_ADD, self._help_account_add),
@@ -197,11 +194,3 @@ class BackendServer:
         if self.based.config.get_push_accounts():
             welcome += Message.info("Listing your accounts:")
         return welcome
-
-    async def based_interrupt(self, _account: Optional["Account"],
-                              _cmd: Callback, _params: Tuple) -> str:
-        """
-        KeyboardInterrupt event in based
-        """
-
-        return ""
