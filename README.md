@@ -80,6 +80,8 @@ optional arguments:
 
 ## Changes
 
+* devel:
+  * Update nuqql-based
 * v0.4.0:
   * Update nuqql-based to v0.2.0
 * v0.3:
