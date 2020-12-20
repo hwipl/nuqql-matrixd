@@ -47,7 +47,7 @@ class BackendClient:
             # Send user message to client for membership events?
             membership_user_msg=True,
             # Filter own messages?
-            filter_own=True
+            filter_own=False
         )
 
     def connect(self, sync_token) -> None:
