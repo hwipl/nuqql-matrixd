@@ -139,6 +139,10 @@ class BackendClient:
         if self.settings.filter_own and sender == self.user:
             return
 
+        # rewrite sender of own messages
+        if sender == self.user:
+            sender = "<self>"
+
         # save timestamp and message in messages list and history
         formatted_msg = Message.chat_msg(self.account, tstamp, sender, room_id,
                                          msg)
