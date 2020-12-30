@@ -46,8 +46,6 @@ class BackendClient:
             membership_message_msg=True,
             # Send user message to client for membership events?
             membership_user_msg=True,
-            # Filter own messages?
-            filter_own=False
         )
 
     def connect(self, sync_token) -> None:
@@ -136,7 +134,7 @@ class BackendClient:
         """
 
         # if filter_own is set, skip own messages
-        if self.settings.filter_own and sender == self.user:
+        if self.account.config.get_filter_own() and sender == self.user:
             return
 
         # rewrite sender of own messages
