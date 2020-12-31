@@ -60,7 +60,7 @@ usage: nuqql-matrixd [--address ADDRESS] [--af {inet,unix}] [-d] [--dir DIR]
 [--disable-history] [--filter-own] [-h] [--loglevel {debug,info,warn,error}]
 [--port PORT] [--push-accounts] [--sockfile SOCKFILE] [--version]
 
-Run nuqql backend.
+Run nuqql backend matrixd.
 
 optional arguments:
   --address ADDRESS     set AF_INET listen address
