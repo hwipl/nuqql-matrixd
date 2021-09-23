@@ -153,8 +153,8 @@ class MatrixClient:
         Handle listener exception
         """
 
-        error = "Stopping listener because exception occured " \
-                "in listener: {}".format(exception)
+        error = (f"Stopping listener because exception occured "
+                 f"in listener: {exception}")
         logging.error(error)
         self.client.should_listen = False
         self.status = "offline"
@@ -281,7 +281,7 @@ class MatrixClient:
             room = self.client.create_room()
             room.set_room_name(room_name)
         except MatrixRequestError as error:
-            return "code: {} content: {}".format(error.code, error.content)
+            return f"code: {error.code} content: {error.content}"
         except MatrixHttpLibError as error:
             self.status = "offline"
             logging.error(error)
@@ -301,7 +301,7 @@ class MatrixClient:
             # if chat is not a room id, try to create a new room
             if not room_name.startswith("!") or ":" not in room_name:
                 return self.create_room(room_name)
-            return "code: {} content: {}".format(error.code, error.content)
+            return f"code: {error.code} content: {error.content}"
         except MatrixHttpLibError as error:
             self.status = "offline"
             logging.error(error)
@@ -321,8 +321,7 @@ class MatrixClient:
                 try:
                     room.leave()
                 except MatrixRequestError as error:
-                    return "code: {} content: {}".format(error.code,
-                                                         error.content)
+                    return f"code: {error.code} content: {error.content}"
                 except MatrixHttpLibError as error:
                     self.status = "offline"
                     logging.error(error)
@@ -336,8 +335,7 @@ class MatrixClient:
                 try:
                     self.client.api.leave_room(room_id)
                 except MatrixRequestError as error:
-                    return "code: {} content: {}".format(error.code,
-                                                         error.content)
+                    return f"code: {error.code} content: {error.content}"
                 except MatrixHttpLibError as error:
                     self.status = "offline"
                     logging.error(error)
@@ -386,7 +384,7 @@ class MatrixClient:
                         # this member is only invited to the room.
                         # user['user_id'] is the sender of the invite,
                         # use fake user id.
-                        user_id = "@{}:<invited>".format(name)
+                        user_id = f"@{name}:<invited>"
                     user_list.append((user_id, name, status))
 
         return user_list
@@ -403,8 +401,7 @@ class MatrixClient:
                 try:
                     room.invite_user(user_id)
                 except MatrixRequestError as error:
-                    return "code: {} content: {}".format(error.code,
-                                                         error.content)
+                    return f"code: {error.code} content: {error.content}"
                 except MatrixHttpLibError as error:
                     self.status = "offline"
                     logging.error(error)
