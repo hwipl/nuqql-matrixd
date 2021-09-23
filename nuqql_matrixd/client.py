@@ -335,13 +335,13 @@ class BackendClient:
         os.chmod(self.account.config.get_dir(), stat.S_IRWXU)
         sync_token_file = self.account.config.get_dir() / f"sync_token{acc_id}"
         if not sync_token_file.exists():
-            open(sync_token_file, "a").close()
+            open(sync_token_file, "a", encoding='UTF-8').close()
 
         # make sure only user can read/write file before using it
         os.chmod(sync_token_file, stat.S_IRUSR | stat.S_IWUSR)
 
         try:
-            with open(sync_token_file, "r") as token_file:
+            with open(sync_token_file, "r", encoding='UTF-8') as token_file:
                 token = token_file.readline()
         except OSError:
             token = ""
@@ -362,7 +362,7 @@ class BackendClient:
         sync_token_file = self.account.config.get_dir() / f"sync_token{acc_id}"
 
         try:
-            with open(sync_token_file, "w") as token_file:
+            with open(sync_token_file, "w", encoding='UTF-8') as token_file:
                 token_file.write(new)
         except OSError:
             return old
