@@ -61,5 +61,5 @@ setup(
     },
     classifiers=CLASSIFIERS,
     python_requires='>=3.7',
-    install_requires=["nuqql-based~=0.3.0", "matrix_client"],
+    install_requires=["nuqql-based~=0.3.0", "matrix_client~=0.4.0"],
 )
