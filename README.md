@@ -85,7 +85,7 @@ optional arguments:
 
 ## Changes
 
-* devel:
+* v0.6.0:
   * Update matrix_client to v0.4.0
 * v0.5.0:
   * Update nuqql-based to v0.3.0, switch to asyncio, require python
