@@ -16,8 +16,7 @@ nuqql-matrixd's dependencies are:
 Note: the Matrix Python SDK [project
 status](https://github.com/matrix-org/matrix-python-sdk#project-status)
 strongly recommends using [matrix-nio](https://github.com/poljar/matrix-nio)
-rather than the Matrix Python SDK. Additionally, the Matrix Python SDK does not
-support E2EE whereas matrix-nio supports it. Thus, please consider using
+rather than the Matrix Python SDK. Thus, please consider using
 [nuqql-matrixd-nio](https://github.com/hwipl/nuqql-matrixd-nio) that uses
 matrix-nio rather than nuqql-matrixd.
 
